@@ -1,0 +1,142 @@
+package encoding
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/dop251/goja"
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
+)
+
+// TextDecoder represents a decoder for a specific text encoding, such
+// as UTF-8, UTF-16, ISO-8859-2, etc.
+//
+// A decoder takes a stream of bytes as input and emits a stream of code points.
+type TextDecoder struct {
+	// Encoding holds the name of the decoder which is a string describing
+	// the method the `TextDecoder` will use.
+	Encoding EncodingName
+
+	// Fatal holds a boolean indicating whether the error mode is fatal.
+	Fatal bool
+
+	// IgnoreBOM holds a boolean indicating whether the byte order mark is ignored.
+	IgnoreBOM bool
+
+	decoder   encoding.Encoding
+	transform transform.Transformer
+
+	rt *goja.Runtime
+}
+
+func (td *TextDecoder) Decode(buffer goja.Value, options decodeOptions) (string, error) {
+	if td.decoder == nil {
+		return "", errors.New("encoding not set")
+	}
+
+	bytes, err := exportArrayBuffer(td.rt, buffer)
+	if err != nil {
+		return "", err
+	}
+
+	var decoded string
+	if options.Stream {
+		if td.transform == nil {
+			td.transform = td.decoder.NewDecoder()
+		}
+
+		out, _, err := transform.String(td.transform, string(bytes))
+		if err != nil {
+			return "", NewError(TypeError, "unable to decode text; reason: "+err.Error())
+		}
+
+		decoded = out
+	} else {
+		decoder := td.decoder.NewDecoder()
+		out, err := decoder.String(string(bytes))
+		if err != nil {
+			return "", NewError(TypeError, "unable to decode text; reason: "+err.Error())
+		}
+		decoded = out
+		td.transform = nil
+	}
+
+	return decoded, nil
+}
+
+type decodeOptions struct {
+	// A boolean flag indicating whether additional data
+	// will follow in subsequent calls to decode().
+	//
+	// Set to true if processing the data in chunks, and
+	// false for the final chunk or if the data is not chunked.
+	Stream bool `js:"stream"`
+}
+
+func newTextDecoder(rt *goja.Runtime, label string, options textDecoderOptions) (*TextDecoder, error) {
+	// Pick the encoding BOM policy accordingly
+	bomPolicy := unicode.IgnoreBOM
+	if !options.IgnoreBOM {
+		bomPolicy = unicode.UseBOM
+	}
+
+	var decoder encoding.Encoding
+	switch label {
+	case "", UTF8EncodingFormat:
+		label = UTF8EncodingFormat
+		decoder = unicode.UTF8
+	case Windows1252EncodingFormat:
+		decoder = charmap.Windows1252
+	case UTF16LEEncodingFormat:
+		decoder = unicode.UTF16(unicode.LittleEndian, bomPolicy)
+	case UTF16BEEncodingFormat:
+		decoder = unicode.UTF16(unicode.BigEndian, bomPolicy)
+	default:
+		return nil, NewError(RangeError, fmt.Sprintf("unsupported encoding: %s", label))
+	}
+
+	td := &TextDecoder{
+		Encoding:  label,
+		IgnoreBOM: options.IgnoreBOM,
+		Fatal:     options.Fatal,
+
+		decoder: decoder,
+		rt:      rt,
+	}
+
+	return td, nil
+}
+
+type EncodingName = string
+
+const (
+	// Windows1252EncodingFormat is the encoding format for windows-1252
+	Windows1252EncodingFormat EncodingName = "windows-1252"
+
+	// UTF8EncodingFormat is the encoding format for utf-8
+	UTF8EncodingFormat = "utf-8"
+
+	// UTF16LEEncodingFormat is the encoding format for utf-16le
+	UTF16LEEncodingFormat = "utf-16le"
+
+	// UTF16BEEncodingFormat is the encoding format for utf-16be
+	UTF16BEEncodingFormat = "utf-16be"
+)
+
+type textDecoderOptions struct {
+	// Fatal holds a boolean value indicating if
+	// the `TextDecoder.decode()`` method must throw
+	// a `TypeError` when decoding invalid data.
+	//
+	// It defaults to `false`, which means that the
+	// decoder will substitute malformed data with a
+	// replacement character.
+	Fatal bool `js:"fatal"`
+
+	// IgnoreBOM holds a boolean value indicating
+	// whether the byte order mark is ignored.
+	IgnoreBOM bool `js:"ignoreBOM"`
+}
