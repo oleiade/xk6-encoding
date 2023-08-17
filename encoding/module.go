@@ -77,9 +77,7 @@ func (mi *ModuleInstance) NewTextDecoder(call goja.ConstructorCall) *goja.Object
 		common.Throw(rt, err)
 	}
 
-	fmt.Printf("TextDecoder: %v\n", td)
-
-	return rt.ToValue(td).ToObject(rt)
+	return newTextDecoderObject(rt, td)
 }
 
 func (mi *ModuleInstance) NewTextEncoder(call goja.ConstructorCall) *goja.Object {
@@ -97,4 +95,29 @@ func (mi *ModuleInstance) NewTextEncoder(call goja.ConstructorCall) *goja.Object
 	}
 
 	return rt.ToValue(te).ToObject(rt)
+}
+
+// newTextDecoderObject converts the given TextDecoder instance into a JS object.
+//
+// It is used by the TextDecoder constructor to convert the Go instance into a JS,
+// and will also set the relevant properties as read-only as per the spec.
+//
+// In the event setting the properties on the object where to fail, the function
+// will throw a JS exception.
+func newTextDecoderObject(rt *goja.Runtime, td *TextDecoder) *goja.Object {
+	obj := rt.NewObject()
+
+	// helper function to set a property on the object as read-only
+	setReadOnlyProperty := func(name string, value interface{}) {
+		if err := obj.DefineDataProperty(name, rt.ToValue(value), goja.FLAG_FALSE, goja.FLAG_FALSE, goja.FLAG_TRUE); err != nil {
+			common.Throw(rt, fmt.Errorf("unable to define %s read-only property on TextDecoder object; reason: %w", name, err))
+		}
+	}
+
+	setReadOnlyProperty("decode", td.Decode)
+	setReadOnlyProperty("encoding", td.Encoding)
+	setReadOnlyProperty("fatal", td.Fatal)
+	setReadOnlyProperty("ignoreBOM", td.IgnoreBOM)
+
+	return obj
 }
