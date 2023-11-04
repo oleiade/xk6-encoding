@@ -1,7 +1,7 @@
 package encoding
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/dop251/goja"
 	"go.k6.io/k6/js/common"
@@ -94,7 +94,7 @@ func (mi *ModuleInstance) NewTextEncoder(call goja.ConstructorCall) *goja.Object
 		common.Throw(rt, err)
 	}
 
-	return rt.ToValue(te).ToObject(rt)
+	return newTextEncoderObject(rt, te)
 }
 
 // newTextDecoderObject converts the given TextDecoder instance into a JS object.
@@ -107,17 +107,71 @@ func (mi *ModuleInstance) NewTextEncoder(call goja.ConstructorCall) *goja.Object
 func newTextDecoderObject(rt *goja.Runtime, td *TextDecoder) *goja.Object {
 	obj := rt.NewObject()
 
-	// helper function to set a property on the object as read-only
-	setReadOnlyProperty := func(name string, value interface{}) {
-		if err := obj.DefineDataProperty(name, rt.ToValue(value), goja.FLAG_FALSE, goja.FLAG_FALSE, goja.FLAG_TRUE); err != nil {
-			common.Throw(rt, fmt.Errorf("unable to define %s read-only property on TextDecoder object; reason: %w", name, err))
-		}
+	if err := setReadOnlyPropertyOf(obj, "decode", rt.ToValue(td.Decode)); err != nil {
+		common.Throw(
+			rt,
+			errors.New("unable to define decode read-only property on TextDecoder object; reason: "+err.Error()),
+		)
 	}
 
-	setReadOnlyProperty("decode", td.Decode)
-	setReadOnlyProperty("encoding", td.Encoding)
-	setReadOnlyProperty("fatal", td.Fatal)
-	setReadOnlyProperty("ignoreBOM", td.IgnoreBOM)
+	if err := setReadOnlyPropertyOf(obj, "encoding", rt.ToValue(td.Encoding)); err != nil {
+		common.Throw(
+			rt,
+			errors.New("unable to define encoding read-only property on TextDecoder object; reason: "+err.Error()),
+		)
+	}
+
+	if err := setReadOnlyPropertyOf(obj, "fatal", rt.ToValue(td.Fatal)); err != nil {
+		common.Throw(
+			rt,
+			errors.New("unable to define fatal read-only property on TextDecoder object; reason: "+err.Error()),
+		)
+	}
+
+	if err := setReadOnlyPropertyOf(obj, "ignoreBOM", rt.ToValue(td.IgnoreBOM)); err != nil {
+		common.Throw(
+			rt,
+			errors.New("unable to define ignoreBOM read-only property on TextDecoder object; reason: "+err.Error()),
+		)
+	}
+
+	return obj
+}
+
+func newTextEncoderObject(rt *goja.Runtime, te *TextEncoder) *goja.Object {
+	obj := rt.NewObject()
+
+	// Wrap the Go TextEncoder.Encode method in a JS function
+	encodeMethod := func(s goja.Value) *goja.Object {
+		buffer, err := te.Encode(s.String())
+		if err != nil {
+			common.Throw(rt, err)
+		}
+
+		// Create a new Uint8Array from the buffer
+		u, err := rt.New(rt.Get("Uint8Array"), rt.ToValue(rt.NewArrayBuffer(buffer)))
+		if err != nil {
+			common.Throw(rt, err)
+		}
+
+		return u
+	}
+
+	// Set the encode property by wrapping the Go function in a JS function
+	if err := setReadOnlyPropertyOf(obj, "encode", rt.ToValue(encodeMethod)); err != nil {
+		common.Throw(
+			rt,
+			errors.New("unable to define encode read-only method on TextEncoder object; reason: "+err.Error()),
+		)
+	}
+
+	// Set the encoding property
+	if err := setReadOnlyPropertyOf(obj, "encoding", rt.ToValue(te.Encoding)); err != nil {
+		common.Throw(
+			rt,
+			errors.New("unable to define encoding read-only property on TextEncoder object; reason: "+err.Error()),
+		)
+	}
 
 	return obj
 }

@@ -2,10 +2,26 @@ package encoding
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/dop251/goja"
 	"go.k6.io/k6/js/common"
 )
+
+// setReadOnlyPropertyOf sets a read-only property on the given [goja.Object].
+func setReadOnlyPropertyOf(obj *goja.Object, name string, value goja.Value) error {
+	err := obj.DefineDataProperty(name,
+		value,
+		goja.FLAG_FALSE,
+		goja.FLAG_FALSE,
+		goja.FLAG_TRUE,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to define %s read-only property on TextEncoder object; reason: %w", name, err)
+	}
+
+	return nil
+}
 
 // exportArrayBuffer interprets the given value as an ArrayBuffer, TypedArray or DataView
 // and returns a copy of the underlying byte slice.
