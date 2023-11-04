@@ -106,6 +106,7 @@ func newTestSetup(t testing.TB) testSetup {
 func compileFile(base, name string) (*goja.Program, error) {
 	fname := path.Join(base, name)
 
+	//nolint:forbidigo
 	f, err := os.Open(filepath.Clean(fname))
 	if err != nil {
 		return nil, err

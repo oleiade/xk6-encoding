@@ -19,7 +19,7 @@ type TextEncoder struct {
 	encoder encoding.Encoding
 }
 
-// Encodee takes a string as input and returns an encoded byte stream.
+// Encode takes a string as input and returns an encoded byte stream.
 func (te *TextEncoder) Encode(text string) ([]byte, error) {
 	if te.encoder == nil {
 		return nil, errors.New("encoding not set")

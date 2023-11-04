@@ -19,6 +19,7 @@ const (
 	TypeError ErrorName = "TypeError"
 )
 
+// Error represents an encoding error.
 type Error struct {
 	// Name contains one of the strings associated with an error name.
 	Name ErrorName `json:"name"`
@@ -32,6 +33,7 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("%s: %s", e.Name, e.Message)
 }
 
+// NewError returns a new Error instance.
 func NewError(name, message string) *Error {
 	return &Error{
 		Name:    name,

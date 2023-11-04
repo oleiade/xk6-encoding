@@ -32,14 +32,10 @@ type TextDecoder struct {
 	rt *goja.Runtime
 }
 
-func (td *TextDecoder) Decode(buffer goja.Value, options decodeOptions) (string, error) {
+// Decode takes a byte stream as input and returns a string.
+func (td *TextDecoder) Decode(buffer []byte, options decodeOptions) (string, error) {
 	if td.decoder == nil {
 		return "", errors.New("encoding not set")
-	}
-
-	bytes, err := exportArrayBuffer(td.rt, buffer)
-	if err != nil {
-		return "", err
 	}
 
 	var decoded string
@@ -48,7 +44,7 @@ func (td *TextDecoder) Decode(buffer goja.Value, options decodeOptions) (string,
 			td.transform = td.decoder.NewDecoder()
 		}
 
-		out, _, err := transform.String(td.transform, string(bytes))
+		out, _, err := transform.String(td.transform, string(buffer))
 		if err != nil {
 			return "", NewError(TypeError, "unable to decode text; reason: "+err.Error())
 		}
@@ -56,7 +52,7 @@ func (td *TextDecoder) Decode(buffer goja.Value, options decodeOptions) (string,
 		decoded = out
 	} else {
 		decoder := td.decoder.NewDecoder()
-		out, err := decoder.String(string(bytes))
+		out, err := decoder.String(string(buffer))
 		if err != nil {
 			return "", NewError(TypeError, "unable to decode text; reason: "+err.Error())
 		}
@@ -110,6 +106,9 @@ func newTextDecoder(rt *goja.Runtime, label string, options textDecoderOptions) 
 	return td, nil
 }
 
+// EncodingName is a type alias for the name of an encoding.
+//
+//nolint:revive
 type EncodingName = string
 
 const (

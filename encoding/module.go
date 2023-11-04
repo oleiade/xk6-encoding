@@ -1,3 +1,5 @@
+// Package encoding provides a k6 JS module that implements the TextEncoder and
+// TextDecoder interfaces.
 package encoding
 
 import (
@@ -54,7 +56,7 @@ func (mi *ModuleInstance) Exports() modules.Exports {
 	}}
 }
 
-// NewCmd is the JS constructor for the Cmd object.
+// NewTextDecoder is the JS constructor for the TextDecoder object.
 func (mi *ModuleInstance) NewTextDecoder(call goja.ConstructorCall) *goja.Object {
 	rt := mi.vu.Runtime()
 
@@ -80,6 +82,7 @@ func (mi *ModuleInstance) NewTextDecoder(call goja.ConstructorCall) *goja.Object
 	return newTextDecoderObject(rt, td)
 }
 
+// NewTextEncoder is the JS constructor for the TextEncoder object.
 func (mi *ModuleInstance) NewTextEncoder(call goja.ConstructorCall) *goja.Object {
 	rt := mi.vu.Runtime()
 
@@ -107,13 +110,30 @@ func (mi *ModuleInstance) NewTextEncoder(call goja.ConstructorCall) *goja.Object
 func newTextDecoderObject(rt *goja.Runtime, td *TextDecoder) *goja.Object {
 	obj := rt.NewObject()
 
-	if err := setReadOnlyPropertyOf(obj, "decode", rt.ToValue(td.Decode)); err != nil {
+	// Wrap the Go TextDecoder.Decode method in a JS function
+	decodeMethod := func(buffer goja.Value, options decodeOptions) string {
+		data, err := exportArrayBuffer(rt, buffer)
+		if err != nil {
+			common.Throw(rt, err)
+		}
+
+		decoded, err := td.Decode(data, options)
+		if err != nil {
+			common.Throw(rt, err)
+		}
+
+		return decoded
+	}
+
+	// Set the decode method to the wrapper function we just created
+	if err := setReadOnlyPropertyOf(obj, "decode", rt.ToValue(decodeMethod)); err != nil {
 		common.Throw(
 			rt,
 			errors.New("unable to define decode read-only property on TextDecoder object; reason: "+err.Error()),
 		)
 	}
 
+	// Set the encoding property
 	if err := setReadOnlyPropertyOf(obj, "encoding", rt.ToValue(td.Encoding)); err != nil {
 		common.Throw(
 			rt,
@@ -121,6 +141,7 @@ func newTextDecoderObject(rt *goja.Runtime, td *TextDecoder) *goja.Object {
 		)
 	}
 
+	// Set the fatal property
 	if err := setReadOnlyPropertyOf(obj, "fatal", rt.ToValue(td.Fatal)); err != nil {
 		common.Throw(
 			rt,
@@ -128,6 +149,7 @@ func newTextDecoderObject(rt *goja.Runtime, td *TextDecoder) *goja.Object {
 		)
 	}
 
+	// Set the ignoreBOM property
 	if err := setReadOnlyPropertyOf(obj, "ignoreBOM", rt.ToValue(td.IgnoreBOM)); err != nil {
 		common.Throw(
 			rt,
