@@ -3,10 +3,10 @@ package encoding
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/dop251/goja"
 	"golang.org/x/text/encoding"
-	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
 )
@@ -72,7 +72,9 @@ type decodeOptions struct {
 	Stream bool `js:"stream"`
 }
 
-func newTextDecoder(rt *goja.Runtime, label string, options textDecoderOptions) (*TextDecoder, error) {
+// NewTextDecoder returns a new TextDecoder object instance that will
+// generate a string from a byte stream with a specific encoding.
+func NewTextDecoder(rt *goja.Runtime, label string, options textDecoderOptions) (*TextDecoder, error) {
 	// Pick the encoding BOM policy accordingly
 	bomPolicy := unicode.IgnoreBOM
 	if !options.IgnoreBOM {
@@ -80,12 +82,16 @@ func newTextDecoder(rt *goja.Runtime, label string, options textDecoderOptions) 
 	}
 
 	var decoder encoding.Encoding
-	switch label {
-	case "", UTF8EncodingFormat:
+	switch strings.TrimSpace(strings.ToLower(label)) {
+	case "",
+		"unicode-1-1-utf-8",
+		"unicode11utf8",
+		"unicode20utf8",
+		"utf-8",
+		"utf8",
+		"x-unicode20utf8":
 		label = UTF8EncodingFormat
 		decoder = unicode.UTF8
-	case Windows1252EncodingFormat:
-		decoder = charmap.Windows1252
 	case UTF16LEEncodingFormat:
 		decoder = unicode.UTF16(unicode.LittleEndian, bomPolicy)
 	case UTF16BEEncodingFormat:
@@ -112,9 +118,6 @@ func newTextDecoder(rt *goja.Runtime, label string, options textDecoderOptions) 
 type EncodingName = string
 
 const (
-	// Windows1252EncodingFormat is the encoding format for windows-1252
-	Windows1252EncodingFormat EncodingName = "windows-1252"
-
 	// UTF8EncodingFormat is the encoding format for utf-8
 	UTF8EncodingFormat = "utf-8"
 

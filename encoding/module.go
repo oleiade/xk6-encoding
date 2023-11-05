@@ -74,7 +74,7 @@ func (mi *ModuleInstance) NewTextDecoder(call goja.ConstructorCall) *goja.Object
 		common.Throw(rt, err)
 	}
 
-	td, err := newTextDecoder(rt, label, options)
+	td, err := NewTextDecoder(rt, label, options)
 	if err != nil {
 		common.Throw(rt, err)
 	}
