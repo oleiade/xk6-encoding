@@ -83,21 +83,8 @@ func (mi *ModuleInstance) NewTextDecoder(call goja.ConstructorCall) *goja.Object
 }
 
 // NewTextEncoder is the JS constructor for the TextEncoder object.
-func (mi *ModuleInstance) NewTextEncoder(call goja.ConstructorCall) *goja.Object {
-	rt := mi.vu.Runtime()
-
-	var label EncodingName
-	err := rt.ExportTo(call.Argument(0), &label)
-	if err != nil {
-		common.Throw(rt, NewError(RangeError, "unable to extract label from the first argument; reason: "+err.Error()))
-	}
-
-	te, err := newTextEncoder(label)
-	if err != nil {
-		common.Throw(rt, err)
-	}
-
-	return newTextEncoderObject(rt, te)
+func (mi *ModuleInstance) NewTextEncoder(_ goja.ConstructorCall) *goja.Object {
+	return newTextEncoderObject(mi.vu.Runtime(), NewTextEncoder())
 }
 
 // newTextDecoderObject converts the given TextDecoder instance into a JS object.

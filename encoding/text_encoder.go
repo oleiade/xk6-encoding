@@ -2,10 +2,8 @@ package encoding
 
 import (
 	"errors"
-	"fmt"
 
 	"golang.org/x/text/encoding"
-	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/unicode"
 )
 
@@ -17,6 +15,15 @@ type TextEncoder struct {
 	Encoding EncodingName
 
 	encoder encoding.Encoding
+}
+
+// NewTextEncoder returns a new TextEncoder object instance that will
+// generate a byte stream with UTF-8 encoding.
+func NewTextEncoder() *TextEncoder {
+	return &TextEncoder{
+		encoder:  unicode.UTF8,
+		Encoding: UTF8EncodingFormat,
+	}
 }
 
 // Encode takes a string as input and returns an encoded byte stream.
@@ -32,27 +39,4 @@ func (te *TextEncoder) Encode(text string) ([]byte, error) {
 	}
 
 	return encoded, nil
-}
-
-func newTextEncoder(label EncodingName) (*TextEncoder, error) {
-	var encoder encoding.Encoding
-	switch label {
-	case Windows1252EncodingFormat:
-		encoder = charmap.Windows1252
-	case UTF8EncodingFormat:
-		encoder = unicode.UTF8
-	case UTF16LEEncodingFormat:
-		encoder = unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM)
-	case UTF16BEEncodingFormat:
-		encoder = unicode.UTF16(unicode.BigEndian, unicode.IgnoreBOM)
-	default:
-		return nil, NewError(RangeError, fmt.Sprintf("unsupported encoding: %s", label))
-	}
-
-	te := &TextEncoder{
-		encoder:  encoder,
-		Encoding: label,
-	}
-
-	return te, nil
 }
