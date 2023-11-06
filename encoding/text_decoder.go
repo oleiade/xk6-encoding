@@ -38,26 +38,33 @@ func (td *TextDecoder) Decode(buffer []byte, options decodeOptions) (string, err
 		return "", errors.New("encoding not set")
 	}
 
+	// Create a transformer that will remove the BOM if IgnoreBOM is false.
+	//
+	// Note that BOM removal only applies to Unicode.
+	var transformer transform.Transformer
+	if !td.IgnoreBOM {
+		transformer = unicode.BOMOverride(td.decoder.NewDecoder())
+	} else {
+		transformer = td.decoder.NewDecoder()
+	}
+
 	var decoded string
+	var err error
 	if options.Stream {
 		if td.transform == nil {
-			td.transform = td.decoder.NewDecoder()
+			td.transform = transformer
 		}
 
-		out, _, err := transform.String(td.transform, string(buffer))
-		if err != nil {
-			return "", NewError(TypeError, "unable to decode text; reason: "+err.Error())
-		}
-
-		decoded = out
+		decoded, _, err = transform.String(td.transform, string(buffer))
 	} else {
-		decoder := td.decoder.NewDecoder()
-		out, err := decoder.String(string(buffer))
-		if err != nil {
-			return "", NewError(TypeError, "unable to decode text; reason: "+err.Error())
-		}
-		decoded = out
+		decoded, _, err = transform.String(transformer, string(buffer))
+
+		// Reset the transformer when not streaming
 		td.transform = nil
+	}
+
+	if err != nil {
+		return "", NewError(TypeError, "unable to decode text; reason: "+err.Error())
 	}
 
 	return decoded, nil

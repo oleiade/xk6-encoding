@@ -3,7 +3,6 @@ package encoding
 import (
 	"testing"
 
-	"github.com/dop251/goja"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,26 +12,30 @@ func TestTextDecoder(t *testing.T) {
 	t.Parallel()
 
 	ts := newTestSetup(t)
-	digestTestScript, err := compileFile("./tests", "textdecoder-labels.js")
+	err := executeTestScripts(ts, "./tests",
+		"textdecoder-labels.js",
+		"textdecoder-byte-order-marks.js",
+	)
 	assert.NoError(t, err)
-
-	gotScriptErr := ts.ev.Start(func() error {
-		_, err := ts.rt.RunProgram(digestTestScript)
-		return err
-	})
-
-	assert.NoError(t, gotScriptErr)
 }
 
-func executeTestScripts(rt *goja.Runtime, base string, scripts ...string) error {
+func executeTestScripts(ts testSetup, base string, scripts ...string) error {
 	for _, script := range scripts {
 		program, err := compileFile(base, script)
 		if err != nil {
 			return err
 		}
 
-		if _, err = rt.RunProgram(program); err != nil {
-			return err
+		gotScriptErr := ts.ev.Start(func() error {
+			if _, err = ts.rt.RunProgram(program); err != nil {
+				return err
+			}
+
+			return nil
+		})
+
+		if gotScriptErr != nil {
+			return gotScriptErr
 		}
 	}
 
