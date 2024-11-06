@@ -3,6 +3,7 @@ module github.com/oleiade/xk6-encoding
 go 1.24.4
 
 require (
+	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994
 	github.com/grafana/sobek v0.0.0-20250320150027-203dc85b6d98
 	github.com/stretchr/testify v1.10.0
 	go.k6.io/k6 v1.1.0

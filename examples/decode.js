@@ -11,6 +11,9 @@ export default function () {
 
   console.log(decoded); // Outputs: Hello World
 
+  const undefinedDecoded = decoder.decode(undefined);
+  console.log(undefinedDecoded); // Outputs: ""
+
   const encoder = new TextEncoder("windows-1252");
   const view = encoder.encode("Hello World");
   console.log(view);

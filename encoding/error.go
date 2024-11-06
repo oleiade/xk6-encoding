@@ -1,6 +1,10 @@
 package encoding
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/dop251/goja"
+)
 
 // ErrorName is a type alias for the name of an encoding error.
 //
@@ -28,6 +32,28 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+// JSError creates a JavaScript error object that can be thrown
+func (e *Error) JSError(rt *goja.Runtime) *goja.Object {
+	var constructor *goja.Object
+
+	switch e.Name {
+	case TypeError:
+		constructor = rt.Get("TypeError").ToObject(rt)
+	case RangeError:
+		constructor = rt.Get("RangeError").ToObject(rt)
+	default:
+		constructor = rt.Get("Error").ToObject(rt)
+	}
+
+	errorObj, err := rt.New(constructor, rt.ToValue(e.Message))
+	if err != nil {
+		// Fallback to generic error
+		errorObj = rt.ToValue(fmt.Errorf("%s: %s", e.Name, e.Message)).ToObject(rt)
+	}
+
+	return errorObj
+}
+
 // Error implements the `error` interface.
 func (e *Error) Error() string {
 	return fmt.Sprintf("%s: %s", e.Name, e.Message)
@@ -39,6 +65,28 @@ func NewError(name, message string) *Error {
 		Name:    name,
 		Message: message,
 	}
+}
+
+// NewJSError creates and throws a JavaScript error with the given type and message.
+func NewJSError(rt *goja.Runtime, name, message string) *goja.Object {
+	var constructor *goja.Object
+
+	switch name {
+	case TypeError:
+		constructor = rt.Get("TypeError").ToObject(rt)
+	case RangeError:
+		constructor = rt.Get("RangeError").ToObject(rt)
+	default:
+		constructor = rt.Get("Error").ToObject(rt)
+	}
+
+	errorObj, err := rt.New(constructor, rt.ToValue(message))
+	if err != nil {
+		// Fallback to generic error
+		errorObj = rt.ToValue(fmt.Errorf("%s: %s", name, message)).ToObject(rt)
+	}
+
+	return errorObj
 }
 
 var _ error = (*Error)(nil)

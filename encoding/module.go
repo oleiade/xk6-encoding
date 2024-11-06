@@ -68,7 +68,7 @@ func (mi *ModuleInstance) NewTextDecoder(call sobek.ConstructorCall) *sobek.Obje
 	}
 
 	// Parse the options parameter
-	var options textDecoderOptions
+	var options TextDecoderOptions
 	err = rt.ExportTo(call.Argument(1), &options)
 	if err != nil {
 		common.Throw(rt, err)
@@ -98,7 +98,7 @@ func newTextDecoderObject(rt *sobek.Runtime, td *TextDecoder) *sobek.Object {
 	obj := rt.NewObject()
 
 	// Wrap the Go TextDecoder.Decode method in a JS function
-	decodeMethod := func(buffer sobek.Value, options decodeOptions) string {
+	decodeMethod := func(buffer sobek.Value, options TextDecodeOptions) string {
 		data, err := exportArrayBuffer(rt, buffer)
 		if err != nil {
 			common.Throw(rt, err)
@@ -106,6 +106,20 @@ func newTextDecoderObject(rt *sobek.Runtime, td *TextDecoder) *sobek.Object {
 
 		decoded, err := td.Decode(data, options)
 		if err != nil {
+			// Check if it's our custom error type for proper JavaScript error throwing
+			var encErr *Error
+			if errors.As(err, &encErr) {
+				// Throw the specific JavaScript error type
+				switch encErr.Name {
+				case TypeError:
+					panic(rt.NewTypeError(encErr.Message))
+				case RangeError:
+					// Create a RangeError using the constructor
+					rangeErrorConstructor := rt.Get("RangeError")
+					rangeError, _ := rt.New(rangeErrorConstructor, rt.ToValue(encErr.Message))
+					panic(rangeError)
+				}
+			}
 			common.Throw(rt, err)
 		}
 

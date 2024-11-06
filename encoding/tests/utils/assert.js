@@ -90,3 +90,23 @@ function assert_in_array(actual, expected, description) {
 function assert_unreached(description) {
   throw `reached unreachable code, reason: ${description}`;
 }
+
+/**
+ * Assert a JS Error with the expected constructor is thrown.
+ *
+ * @param {object} constructor The expected exception constructor.
+ * @param {Function} func Function which should throw.
+ * @param {string} [description] Error description for the case that the error is not thrown.
+ */
+function assert_throws_js(constructor, func, description)
+{
+    try {
+        func();
+    } catch (e) {
+        if (e instanceof constructor) {
+        return;
+        }
+        throw `assert_throws_js ${description} expected ${constructor.name} but got ${e.name}`;
+    }
+    throw `assert_throws_js ${description} expected ${constructor.name} but no exception was thrown`;
+}

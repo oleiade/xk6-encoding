@@ -27,7 +27,7 @@ func setReadOnlyPropertyOf(obj *sobek.Object, name string, value sobek.Value) er
 // and returns a copy of the underlying byte slice.
 func exportArrayBuffer(rt *sobek.Runtime, v sobek.Value) ([]byte, error) {
 	if common.IsNullish(v) {
-		return nil, NewError(TypeError, "data is null or undefined")
+		return []byte{}, nil
 	}
 
 	asObject := v.ToObject(rt)
