@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/dop251/goja"
+	"github.com/grafana/sobek"
 	"github.com/stretchr/testify/require"
 	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/eventloop"
@@ -22,49 +22,47 @@ import (
 // necessary to test the redis client, in the context
 // of the execution of a k6 script.
 type testSetup struct {
-	rt      *goja.Runtime
+	rt      *sobek.Runtime
 	state   *lib.State
 	samples chan metrics.SampleContainer
 	ev      *eventloop.EventLoop
 }
 
 // newTestSetup initializes a new test setup.
-// It prepares a test setup with a mocked redis server and a goja runtime,
+// It prepares a test setup with a mocked redis server and a sobek runtime,
 // and event loop, ready to execute scripts as if being executed in the
 // main context of k6.
 func newTestSetup(t testing.TB) testSetup {
 	tb := httpmultibin.NewHTTPMultiBin(t)
 
-	rt := goja.New()
-	rt.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
+	rt := sobek.New()
+	rt.SetFieldNameMapper(sobek.TagFieldNameMapper("json", true))
 
-	// We compile the Web Platform testharness script into a goja.Program
+	// We compile the Web Platform testharness script into a sobek.Program
 	encodingsProgram, err := compileFile("./tests/resources", "encodings.js")
 	require.NoError(t, err)
 
-	// We execute the harness script in the goja runtime
+	// We execute the harness script in the sobek runtime
 	// in order to make the Web Platform assertion functions available
 	// to the tests.
 	_, err = rt.RunProgram(encodingsProgram)
 	require.NoError(t, err)
 
-	// We compile the Web Platform testharness script into a goja.Program
+	// We compile the Web Platform testharness script into a sobek.Program
 	assertProgram, err := compileFile("./tests/utils", "assert.js")
 	require.NoError(t, err)
 
-	// We execute the harness script in the goja runtime
+	// We execute the harness script in the sobek runtime
 	// in order to make the Web Platform assertion functions available
 	// to the tests.
 	_, err = rt.RunProgram(assertProgram)
 	require.NoError(t, err)
 
-	root, err := lib.NewGroup("", nil)
 	require.NoError(t, err)
 
 	samples := make(chan metrics.SampleContainer, 1000)
 
 	state := &lib.State{
-		Group:  root,
 		Dialer: tb.Dialer,
 		Options: lib.Options{
 			SystemTags: metrics.NewSystemTagSet(
@@ -102,8 +100,8 @@ func newTestSetup(t testing.TB) testSetup {
 	}
 }
 
-// compileFile compiles a javascript file as a goja.Program.
-func compileFile(base, name string) (*goja.Program, error) {
+// compileFile compiles a javascript file as a sobek.Program.
+func compileFile(base, name string) (*sobek.Program, error) {
 	fname := path.Join(base, name)
 
 	//nolint:forbidigo
@@ -124,7 +122,7 @@ func compileFile(base, name string) (*goja.Program, error) {
 	}
 
 	str := string(b)
-	program, err := goja.Compile(name, str, false)
+	program, err := sobek.Compile(name, str, false)
 	if err != nil {
 		return nil, err
 	}
