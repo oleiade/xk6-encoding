@@ -110,3 +110,21 @@ function assert_throws_js(constructor, func, description)
     }
     throw `assert_throws_js ${description} expected ${constructor.name} but no exception was thrown`;
 }
+
+/**
+ * Run a test function with scope isolation.
+ * This provides basic WPT compatibility by isolating test functions in their own scope.
+ *
+ * @param {Function} func The test function to run.
+ * @param {string} [name] Optional test name for debugging.
+ */
+function test(func, name) {
+    try {
+        func();
+    } catch (e) {
+        if (name) {
+            throw `Test "${name}" failed: ${e}`;
+        }
+        throw e;
+    }
+}
