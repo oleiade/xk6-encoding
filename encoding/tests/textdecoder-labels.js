@@ -7,7 +7,7 @@ encodings_table.forEach(function (section) {
     .forEach(function (encoding) {
       encoding.labels.forEach(function (label) {
         const textDecoderName = encoding.name.toLowerCase(); // ASCII names only, so safe
-        // test(function (t) {
+        test(function (t) {
         assert_equals(
           new TextDecoder(label).encoding,
           textDecoderName,
@@ -34,7 +34,7 @@ encodings_table.forEach(function (section) {
             textDecoderName,
             "label for encoding with surrounding whitespace should match"
           );
-          // });
+          });
         }, label + " => " + encoding.name);
       });
     });

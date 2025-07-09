@@ -12,7 +12,7 @@ function createBuffer(_, size) {
 
 // ["ArrayBuffer", "SharedArrayBuffer"].forEach(arrayBufferOrSharedArrayBuffer => {
 ["ArrayBuffer", ].forEach(arrayBuffer => {
-    // test(() => {
+    test(() => {
         const buf = createBuffer(arrayBuffer, 2);
         const view = new Uint8Array(buf);
         const buf2 = createBuffer(arrayBuffer, 2);
@@ -26,5 +26,5 @@ function createBuffer(_, size) {
         view[0] = 0x01;
         view[1] = 0x02;
         assert_equals(decoder.decode(buf2), "@");
-    // }, "Modify buffer after passing it in (" + arrayBuffer  + ")");
+    }, "Modify buffer after passing it in (" + arrayBuffer  + ")");
 });

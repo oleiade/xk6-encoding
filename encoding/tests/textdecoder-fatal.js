@@ -46,22 +46,21 @@ var bad = [
 ];
 
 bad.forEach(function(t) {
-    // test(function() {
+    test(function() {
         assert_throws_js(TypeError, function() {
             new TextDecoder(t.encoding, {fatal: true}).decode(new Uint8Array(t.input))
         }, 'Fatal flag: ' + t.encoding + ' - ' + t.name);
-    // }, 'Fatal flag: ' + t.encoding + ' - ' + t.name);
+    }, 'Fatal flag: ' + t.encoding + ' - ' + t.name);
 });
 
-// test(function() {
+test(function() {
     assert_true('fatal' in new TextDecoder(), 'The fatal attribute should exist on TextDecoder.');
     assert_equals(typeof  new TextDecoder().fatal, 'boolean', 'The type of the fatal attribute should be boolean.');
     assert_false(new TextDecoder().fatal, 'The fatal attribute should default to false.');
     assert_true(new TextDecoder('utf-8', {fatal: true}).fatal, 'The fatal attribute can be set using an option.');
+}, 'The fatal attribute of TextDecoder');
 
-// }, 'The fatal attribute of TextDecoder');
-
-// test(() => {
+test(() => {
     const bytes = new Uint8Array([226, 153, 165]);
     const decoder = new TextDecoder('utf-8', {fatal: true});
     assert_equals(decoder.decode(new DataView(bytes.buffer, 0, 3)),
@@ -73,4 +72,4 @@ bad.forEach(function(t) {
     assert_equals(decoder.decode(new DataView(bytes.buffer, 0, 3)),
         '♥',
         'decode() should not throw on subsequent call');
-// }, 'Error seen with fatal does not prevent future decodes');
+}, 'Error seen with fatal does not prevent future decodes');

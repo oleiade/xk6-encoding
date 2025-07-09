@@ -5,7 +5,7 @@ var cases = [
 ];
 
 cases.forEach(function(testCase) {
-    // test(function() {
+    test(function() {
         var BOM = '\uFEFF';
         var decoder = new TextDecoder(testCase.encoding, {ignoreBOM: true});
         var bytes = new Uint8Array(testCase.bytes);
@@ -37,13 +37,12 @@ cases.forEach(function(testCase) {
             decoder.decode(bytes),
             'abc',
             testCase.encoding + ': BOM should be absent from decoded string by default with a reused decoder');
-    // }, 'BOM is ignored if ignoreBOM option is specified: ' + testCase.encoding);
+    }, 'BOM is ignored if ignoreBOM option is specified: ' + testCase.encoding);
 });
 
-// test(function() {
+test(function() {
     assert_true('ignoreBOM' in new TextDecoder(), 'The ignoreBOM attribute should exist on TextDecoder.');
     assert_equals(typeof  new TextDecoder().ignoreBOM, 'boolean', 'The type of the ignoreBOM attribute should be boolean.');
     assert_false(new TextDecoder().ignoreBOM, 'The ignoreBOM attribute should default to false.');
     assert_true(new TextDecoder('utf-8', {ignoreBOM: true}).ignoreBOM, 'The ignoreBOM attribute can be set using an option.');
-
-// }, 'The ignoreBOM attribute of TextDecoder');
+}, 'The ignoreBOM attribute of TextDecoder');
