@@ -36,13 +36,16 @@ func newTestSetup(t testing.TB) *testSetup {
 
 	samples := make(chan metrics.SampleContainer, 1000)
 	m := new(RootModule).NewModuleInstance(rt.VU)
-	rt.VU.RuntimeField.Set("TextDecoder", m.Exports().Named["TextDecoder"])
+	err := rt.VU.RuntimeField.Set("TextDecoder", m.Exports().Named["TextDecoder"])
+	if err != nil {
+		t.Fatalf("failed to set test setup's TextDecoder: %v", err)
+	}
 	ts := &testSetup{
 		rt:      rt,
 		state:   rt.VU.State(),
 		samples: samples,
 	}
-	err := testExecuteTestScripts(ts)
+	err = testExecuteTestScripts(ts)
 	require.NoError(t, err)
 	return ts
 }
@@ -54,7 +57,6 @@ func testExecuteTestScripts(ts *testSetup) error {
 	}
 
 	return executeTestScripts(ts, scripts)
-
 }
 
 func executeTestScripts(ts *testSetup, scripts []testScript) error {
