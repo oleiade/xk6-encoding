@@ -105,7 +105,22 @@ func newTextDecoderObject(rt *sobek.Runtime, td *TextDecoder) *sobek.Object {
 	obj := rt.NewObject()
 
 	// Wrap the Go TextDecoder.Decode method in a JS function
-	decodeMethod := func(buffer sobek.Value, options TextDecodeOptions) string {
+	decodeMethod := func(call sobek.FunctionCall) sobek.Value {
+		// Handle variable arguments - buffer can be undefined/missing
+		var buffer sobek.Value
+		if len(call.Arguments) > 0 {
+			buffer = call.Arguments[0]
+		}
+		
+		// Handle options parameter
+		var options TextDecodeOptions
+		if len(call.Arguments) > 1 && !sobek.IsUndefined(call.Arguments[1]) {
+			err := rt.ExportTo(call.Arguments[1], &options)
+			if err != nil {
+				common.Throw(rt, err)
+			}
+		}
+		
 		data, err := exportArrayBuffer(rt, buffer)
 		if err != nil {
 			common.Throw(rt, err)
@@ -130,7 +145,7 @@ func newTextDecoderObject(rt *sobek.Runtime, td *TextDecoder) *sobek.Object {
 			common.Throw(rt, err)
 		}
 
-		return decoded
+		return rt.ToValue(decoded)
 	}
 
 	// Set the decode method to the wrapper function we just created
