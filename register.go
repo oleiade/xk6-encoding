@@ -1,3 +1,4 @@
+// Package encoding is a k6 module that provides implementations of encoding.TextDecoder and encoding.TextEncoder.
 package encoding
 
 import (
