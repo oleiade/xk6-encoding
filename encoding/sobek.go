@@ -30,6 +30,11 @@ func exportArrayBuffer(rt *sobek.Runtime, v sobek.Value) ([]byte, error) {
 		return []byte{}, nil
 	}
 
+	// Handle undefined specifically (Web API spec requires undefined to be treated as empty buffer)
+	if v == nil || sobek.IsUndefined(v) {
+		return []byte{}, nil
+	}
+
 	asObject := v.ToObject(rt)
 
 	var ab sobek.ArrayBuffer
