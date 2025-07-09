@@ -13,6 +13,7 @@ func TestTextDecoder(t *testing.T) {
 	scripts := []testScript{
 		{base: "./tests", path: "textdecoder-labels.js"},
 		{base: "./tests", path: "textdecoder-byte-order-marks.js"},
+		{base: "./tests", path: "textdecoder-eof.js"},
 	}
 
 	ts := newTestSetup(t)

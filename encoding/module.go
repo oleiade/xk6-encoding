@@ -60,18 +60,25 @@ func (mi *ModuleInstance) Exports() modules.Exports {
 func (mi *ModuleInstance) NewTextDecoder(call sobek.ConstructorCall) *sobek.Object {
 	rt := mi.vu.Runtime()
 
-	// Parse the label parameter
+	// Parse the label parameter - default to "utf-8" if undefined
 	var label string
-	err := rt.ExportTo(call.Argument(0), &label)
-	if err != nil {
-		common.Throw(rt, NewError(RangeError, "unable to extract label from the first argument; reason: "+err.Error()))
+	if call.Argument(0) != nil && !sobek.IsUndefined(call.Argument(0)) {
+		err := rt.ExportTo(call.Argument(0), &label)
+		if err != nil {
+			common.Throw(rt, NewError(RangeError, "unable to extract label from the first argument; reason: "+err.Error()))
+		}
+	}
+	if label == "" {
+		label = "utf-8"
 	}
 
 	// Parse the options parameter
 	var options TextDecoderOptions
-	err = rt.ExportTo(call.Argument(1), &options)
-	if err != nil {
-		common.Throw(rt, err)
+	if call.Argument(1) != nil && !sobek.IsUndefined(call.Argument(1)) {
+		err := rt.ExportTo(call.Argument(1), &options)
+		if err != nil {
+			common.Throw(rt, err)
+		}
 	}
 
 	td, err := NewTextDecoder(rt, label, options)
