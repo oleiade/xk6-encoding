@@ -1,8 +1,6 @@
 module github.com/oleiade/xk6-encoding
 
-go 1.23.0
-
-toolchain go1.23.5
+go 1.24.4
 
 require (
 	github.com/grafana/sobek v0.0.0-20250320150027-203dc85b6d98
