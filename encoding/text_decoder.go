@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dop251/goja"
+	"github.com/grafana/sobek"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/unicode"
 	"golang.org/x/text/transform"
@@ -29,7 +29,7 @@ type TextDecoder struct {
 	decoder   encoding.Encoding
 	transform transform.Transformer
 
-	rt *goja.Runtime
+	rt *sobek.Runtime
 }
 
 // Decode takes a byte stream as input and returns a string.
@@ -81,7 +81,7 @@ type decodeOptions struct {
 
 // NewTextDecoder returns a new TextDecoder object instance that will
 // generate a string from a byte stream with a specific encoding.
-func NewTextDecoder(rt *goja.Runtime, label string, options textDecoderOptions) (*TextDecoder, error) {
+func NewTextDecoder(rt *sobek.Runtime, label string, options textDecoderOptions) (*TextDecoder, error) {
 	// Pick the encoding BOM policy accordingly
 	bomPolicy := unicode.IgnoreBOM
 	if !options.IgnoreBOM {
