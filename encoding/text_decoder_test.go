@@ -11,6 +11,7 @@ import (
 func TestTextDecoder(t *testing.T) {
 	t.Parallel()
 	scripts := []testScript{
+		{base: "./tests", path: "textdecoder-arguments.js"},
 		{base: "./tests", path: "textdecoder-labels.js"},
 		{base: "./tests", path: "textdecoder-byte-order-marks.js"},
 		{base: "./tests", path: "textdecoder-eof.js"},
