@@ -29,6 +29,11 @@ go test -v ./encoding/
 
 # Run a single test function
 go test -v -run TestTextDecoder ./encoding/
+
+# Test with the built k6 binary (run JS tests)
+./k6 run examples/test.js
+./k6 run examples/encode-decode.js
+./k6 run examples/decode-chunked.js
 ```
 
 ### Code Quality
@@ -59,8 +64,14 @@ go mod tidy
 
 **Testing Infrastructure (`encoding/test_setup.go`)**
 - Web Platform Tests (WPT) compatibility layer
-- Goja runtime setup with k6 module integration
+- Goja runtime setup with k6 module integration  
 - JavaScript test harness for running encoding tests
+- Test utilities in `encoding/tests/utils/assert.js` for JS test assertions
+
+**Error Handling (`encoding/error.go`)**
+- Custom error types that match JavaScript Web API standards
+- `RangeError` for unsupported encodings
+- `TypeError` for invalid sequences in fatal mode
 
 ### Key Design Patterns
 
@@ -71,10 +82,12 @@ go mod tidy
 
 ### Testing Strategy
 
-- **Unit Tests**: Go tests for core encoding/decoding functionality
+- **Unit Tests**: Go tests for core encoding/decoding functionality (`*_test.go` files)
 - **Integration Tests**: JavaScript tests that run via Goja runtime
 - **WPT Compatibility**: Tests based on Web Platform Test specifications
 - **Test Scripts**: Located in `encoding/tests/` directory with utility functions
+- **Example Scripts**: Located in `examples/` directory for functional testing
+- **Debug Scripts**: `debug_test.js` and `debug_js_test.js` for development debugging
 
 ### Supported Encodings
 
@@ -89,11 +102,21 @@ The extension supports these text encodings:
 ```
 encoding/
 ├── module.go          # k6 module interface and JS constructors
-├── text_decoder.go    # TextDecoder implementation
+├── text_decoder.go    # TextDecoder implementation  
 ├── text_encoder.go    # TextEncoder implementation
 ├── error.go          # Custom error types
-├── goja.go           # Goja runtime utilities
+├── sobek.go          # Sobek/Goja runtime utilities
 ├── test_setup.go     # Test infrastructure
 ├── *_test.go         # Go unit tests
 └── tests/            # JavaScript test files
+    ├── utils/        # Test utility functions
+    └── resources/    # Test resource files
+
+examples/             # Example k6 scripts
+├── encode-decode.js  # Basic encoding/decoding examples
+├── decode-chunked.js # Streaming decode example
+├── benchmark_*.js   # Performance benchmarks
+└── test.js          # Simple test script
+
+register.go          # Extension registration for xk6
 ```
