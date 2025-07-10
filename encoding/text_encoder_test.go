@@ -12,6 +12,7 @@ func TestTextEncoder(t *testing.T) {
 	t.Parallel()
 	scripts := []testScript{
 		{base: "./tests", path: "textencoder-constructor-non-utf.js"},
+		{base: "./tests", path: "textencoder-utf16-surrogates.js"},
 	}
 
 	ts := newTestSetup(t)

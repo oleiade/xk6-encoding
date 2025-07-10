@@ -33,10 +33,10 @@ func (te *TextEncoder) Encode(text string) ([]byte, error) {
 	}
 
 	enc := te.encoder.NewEncoder()
-	encoded, err := enc.Bytes([]byte(text))
+	encoded, err := enc.String(text)
 	if err != nil {
 		return nil, NewError(TypeError, "unable to encode text; reason: "+err.Error())
 	}
 
-	return encoded, nil
+	return []byte(encoded), nil
 }

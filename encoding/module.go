@@ -189,7 +189,15 @@ func newTextEncoderObject(rt *sobek.Runtime, te *TextEncoder) *sobek.Object {
 
 	// Wrap the Go TextEncoder.Encode method in a JS function
 	encodeMethod := func(s sobek.Value) *sobek.Object {
-		buffer, err := te.Encode(s.String())
+		// Handle undefined/null values by defaulting to empty string
+		var text string
+		if s == nil || sobek.IsUndefined(s) {
+			text = ""
+		} else {
+			text = s.String()
+		}
+		
+		buffer, err := te.Encode(text)
 		if err != nil {
 			common.Throw(rt, err)
 		}

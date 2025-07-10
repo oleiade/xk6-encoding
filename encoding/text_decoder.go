@@ -174,6 +174,8 @@ func (td *TextDecoder) Decode(buffer []byte, options TextDecodeOptions) (string,
 						// Emit replacement characters for it and process new bytes separately
 						replacementCount = 1 // One replacement for the incomplete sequence
 
+						// Reset the transformer to ensure clean state for processing new valid bytes
+						td.transform.Reset()
 
 						// Process only the new bytes, not the incomplete sequence
 						invalidSeqs, validBytes, incompleteBytes := detectInvalidUTF8Sequences(buffer)
