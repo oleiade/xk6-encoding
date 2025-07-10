@@ -16,6 +16,27 @@ const encodings_table = [
     ],
     heading: "The Encoding",
   },
+  {
+    encodings: [
+      {
+        labels: ["unicodefffe", "utf-16be"],
+        name: "UTF-16BE",
+      },
+      {
+        labels: [
+          "csunicode",
+          "iso-10646-ucs-2",
+          "ucs-2",
+          "unicode",
+          "unicodefeff",
+          "utf-16",
+          "utf-16le",
+        ],
+        name: "UTF-16LE",
+      },
+    ],
+    heading: "UTF-16 encodings",
+  },
   // {
   //   encodings: [
   //     {

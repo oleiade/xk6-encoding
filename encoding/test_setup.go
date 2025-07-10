@@ -40,6 +40,10 @@ func newTestSetup(t testing.TB) *testSetup {
 	if err != nil {
 		t.Fatalf("failed to set test setup's TextDecoder: %v", err)
 	}
+	err = rt.VU.RuntimeField.Set("TextEncoder", m.Exports().Named["TextEncoder"])
+	if err != nil {
+		t.Fatalf("failed to set test setup's TextEncoder: %v", err)
+	}
 	ts := &testSetup{
 		rt:      rt,
 		state:   rt.VU.State(),
