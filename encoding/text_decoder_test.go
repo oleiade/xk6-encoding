@@ -19,7 +19,7 @@ func TestTextDecoder(t *testing.T) {
 		{base: "./tests", path: "textdecoder-fatal-streaming.js"},
 		{base: "./tests", path: "textdecoder-ignorebom.js"},
 		{base: "./tests", path: "textdecoder-labels.js"},
-		// {base: "./tests", path: "textdecoder-streaming.js"},
+		{base: "./tests", path: "textdecoder-streaming.js"},
 		{base: "./tests", path: "textdecoder-utf16-surrogates.js"},
 	}
 

@@ -165,7 +165,7 @@ func (td *TextDecoder) Decode(buffer []byte, options TextDecodeOptions) (string,
 	var incompleteSequences []byte
 	if td.Encoding == UTF8EncodingFormat && len(td.buffer) > 0 {
 		if doNotFlush {
-			// In streaming mode, check if previous incomplete sequences can be completed
+			// In streaming mode, always detect invalid bytes first
 			if len(prevIncompleteBytes) > 0 {
 				if len(buffer) > 0 {
 					// Check if the new bytes can complete the previous incomplete sequence
@@ -200,7 +200,7 @@ func (td *TextDecoder) Decode(buffer []byte, options TextDecodeOptions) (string,
 					incompleteSequences = incompleteBytes
 				}
 			} else {
-				// No previous incomplete sequences - process normally
+				// No previous incomplete sequences - detect invalid bytes in all new data
 				invalidSeqs, validBytes, incompleteBytes := detectInvalidUTF8Sequences(td.buffer)
 				replacementCount = len(invalidSeqs)
 				td.buffer = validBytes
@@ -221,7 +221,7 @@ func (td *TextDecoder) Decode(buffer []byte, options TextDecodeOptions) (string,
 
 	// Add replacement characters for invalid sequences found in streaming mode
 	for i := 0; i < replacementCount; i++ {
-		copy(dest[destPos:], "\uFFFD") // UTF-8 encoded replacement character
+		copy(dest[destPos:], []byte{0xEF, 0xBF, 0xBD}) // UTF-8 encoded replacement character
 		destPos += 3
 	}
 
@@ -485,8 +485,21 @@ func detectInvalidUTF8Sequences(buffer []byte) (invalid [][]byte, valid []byte, 
 			continue
 		}
 
-		// Check for invalid UTF-8 patterns
-		if b >= 0xC0 && b <= 0xDF {
+		// Check for immediately invalid UTF-8 bytes
+		if b == 0xC0 || b == 0xC1 {
+			// Invalid overlong encoding starters - emit replacement immediately
+			invalidSeqs = append(invalidSeqs, []byte{b})
+			i++
+			continue
+		} else if b >= 0xF5 && b <= 0xFF {
+			// Invalid UTF-8 start bytes - emit replacement immediately
+			invalidSeqs = append(invalidSeqs, []byte{b})
+			i++
+			continue
+		}
+		
+		// Check for valid UTF-8 patterns
+		if b >= 0xC2 && b <= 0xDF {
 			// 2-byte sequence starter
 			if i+1 >= len(buffer) {
 				// Incomplete sequence - save it separately, don't pass to transform
@@ -582,7 +595,7 @@ func detectInvalidUTF8Sequences(buffer []byte) (invalid [][]byte, valid []byte, 
 				continue
 			}
 		} else {
-			// Invalid byte (0x80-0xBF standalone, 0xF8-0xFF)
+			// Invalid byte (0x80-0xBF standalone)
 			invalidSeqs = append(invalidSeqs, []byte{b})
 			i++
 			continue
