@@ -51,22 +51,22 @@ func exportArrayBuffer(rt *sobek.Runtime, v sobek.Value) ([]byte, error) {
 		if !ok {
 			return nil, errors.New("DataView.buffer is not an ArrayBuffer")
 		}
-		
+
 		// Get the byte offset and length from the DataView
 		byteOffset := asObject.Get("byteOffset").ToInteger()
 		byteLength := asObject.Get("byteLength").ToInteger()
-		
+
 		// Extract the relevant portion of the ArrayBuffer
 		allBytes := ab.Bytes()
 		if byteOffset < 0 || byteOffset >= int64(len(allBytes)) {
 			return nil, errors.New("DataView byteOffset out of bounds")
 		}
-		
+
 		end := byteOffset + byteLength
 		if end > int64(len(allBytes)) {
 			end = int64(len(allBytes))
 		}
-		
+
 		return allBytes[byteOffset:end], nil
 	} else {
 		ab, ok = asObject.Export().(sobek.ArrayBuffer)

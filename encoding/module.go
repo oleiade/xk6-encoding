@@ -111,7 +111,7 @@ func newTextDecoderObject(rt *sobek.Runtime, td *TextDecoder) *sobek.Object {
 		if len(call.Arguments) > 0 {
 			buffer = call.Arguments[0]
 		}
-		
+
 		// Handle options parameter
 		var options TextDecodeOptions
 		if len(call.Arguments) > 1 && !sobek.IsUndefined(call.Arguments[1]) {
@@ -120,7 +120,7 @@ func newTextDecoderObject(rt *sobek.Runtime, td *TextDecoder) *sobek.Object {
 				common.Throw(rt, err)
 			}
 		}
-		
+
 		data, err := exportArrayBuffer(rt, buffer)
 		if err != nil {
 			common.Throw(rt, err)

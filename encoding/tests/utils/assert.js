@@ -11,9 +11,29 @@
 // https://github.com/web-platform-tests/wpt/blob/3a3453c62176c97ab51cd492553c2dacd24366b1/resources/testharness.js
 
 /**
+ * Helper function for precise value comparison, handling NaN and signed zero.
+ * Based on WPT testharness.js same_value function.
+ *
+ * @param {Any} x - First value to compare.
+ * @param {Any} y - Second value to compare.
+ * @returns {boolean} - True if values are the same.
+ */
+function same_value(x, y) {
+  if (y !== y) {
+    // NaN case - check if x is also NaN
+    return x !== x;
+  }
+  if (x === 0 && y === 0) {
+    // Distinguish +0 and -0
+    return 1/x === 1/y;
+  }
+  return x === y;
+}
+
+/**
  * Assert that ``actual`` is the same value as ``expected``.
  *
- * For objects this compares by cobject identity; for primitives
+ * For objects this compares by object identity; for primitives
  * this distinguishes between 0 and -0, and has correct handling
  * of NaN.
  *
@@ -22,7 +42,13 @@
  * @param {string} [description] - Description of the condition being tested.
  */
 function assert_equals(actual, expected, description) {
-  if (actual !== expected) {
+  // Check type equality first, as per WPT implementation
+  if (typeof actual != typeof expected) {
+    throw `assert_equals ${description} expected (${typeof expected}) ${expected} but got (${typeof actual}) ${actual}`;
+  }
+  
+  // Use same_value for precise comparison
+  if (!same_value(actual, expected)) {
     throw `assert_equals ${description} expected (${typeof expected}) ${expected} but got (${typeof actual}) ${actual}`;
   }
 }
