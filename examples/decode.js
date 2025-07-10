@@ -14,7 +14,7 @@ export default function () {
   const undefinedDecoded = decoder.decode(undefined);
   console.log(undefinedDecoded); // Outputs: ""
 
-  const encoder = new TextEncoder("windows-1252");
+  const encoder = new TextEncoder();
   const view = encoder.encode("Hello World");
   console.log(view);
 }

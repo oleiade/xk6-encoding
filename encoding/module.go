@@ -38,8 +38,6 @@ func New() *RootModule {
 // NewModuleInstance implements the modules.Module interface and returns
 // a new instance for each VU.
 func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
-	vu.Runtime().SetFieldNameMapper(sobek.TagFieldNameMapper("js", true))
-
 	return &ModuleInstance{
 		vu:          vu,
 		TextDecoder: &TextDecoder{},

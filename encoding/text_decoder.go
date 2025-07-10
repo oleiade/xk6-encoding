@@ -36,11 +36,11 @@ type TextDecoderOptions struct {
 	// It defaults to `false`, which means that the
 	// decoder will substitute malformed data with a
 	// replacement character.
-	Fatal bool `js:"fatal"`
+	Fatal bool `json:"fatal"`
 
 	// IgnoreBOM holds a boolean value indicating
 	// whether the byte order mark is ignored.
-	IgnoreBOM bool `js:"ignoreBOM"`
+	IgnoreBOM bool `json:"ignoreBOM"`
 }
 
 // TextDecoderCommon represents the common subset of the TextDecoder interface
@@ -48,7 +48,7 @@ type TextDecoderOptions struct {
 type TextDecoderCommon struct {
 	// Encoding holds the name of the decoder which is a string describing
 	// the method the `TextDecoder` will use.
-	Encoding EncodingName `js:"encoding"`
+	Encoding EncodingName `json:"encoding"`
 
 	// Fatal holds a boolean value indicating if
 	// the `TextDecoder.decode()`` method must throw
@@ -57,11 +57,11 @@ type TextDecoderCommon struct {
 	// It defaults to `false`, which means that the
 	// decoder will substitute malformed data with a
 	// replacement character.
-	Fatal bool `js:"fatal"`
+	Fatal bool `json:"fatal"`
 
 	// IgnoreBOM holds a boolean value indicating
 	// whether the byte order mark is ignored.
-	IgnoreBOM bool `js:"ignoreBOM"`
+	IgnoreBOM bool `json:"ignoreBOM"`
 
 	errorMode ErrorMode
 }
@@ -739,7 +739,7 @@ type TextDecodeOptions struct {
 	//
 	// Set to true if processing the data in chunks, and
 	// false for the final chunk or if the data is not chunked.
-	Stream bool `js:"stream"`
+	Stream bool `json:"stream"`
 }
 
 // EncodingName is a type alias for the name of an encoding.
