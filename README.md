@@ -1,58 +1,302 @@
-# `TextEncoder` and `TextDecoder` implementations for k6
+# xk6-encoding
 
-Welcome to xk6-encoding, an xk6 extension that brings support for Javascript's TextEncoder and TextDecoder to k6, enabling you to seamlessly handle various text encodings during your performance tests.
+A [k6](https://go.k6.io/k6) extension that provides JavaScript's TextEncoder and TextDecoder APIs for handling various text encodings in k6 performance tests. This extension implements a subset of the [Encoding Living Standard](https://encoding.spec.whatwg.org/) with focus on UTF-8 and UTF-16 encodings.
 
 ## Features
 
-* **Text Encoding**: Convert your strings into byte streams with support for various encoding formats including UTF-8, UTF-16, and Windows-1252.
-* **Text Decoding**: Decode byte streams back to strings with ease, even when processing the data in chunks.
-* **Flexible Options**: Handle Byte Order Marks (BOM) and determine behavior on decoding invalid data.
+- **TextEncoder**: Encode strings to UTF-8 byte arrays with proper surrogate handling
+- **TextDecoder**: Decode byte arrays to strings with support for multiple encodings
+- **Streaming support**: Handle large data streams efficiently (with some limitations)
+- **BOM handling**: Configurable byte order mark processing
+- **Multiple encodings**: UTF-8, UTF-16LE, UTF-16BE support
+- **Error handling**: Fatal and non-fatal decoding modes
 
-## Why Use xk6-encoding?
+## Supported Encodings
 
-If you're working with systems that utilize various text encodings or if you're aiming to test the performance of encoding/decoding tasks, this extension will be invaluable for your k6 tests.
+- **UTF-8** (default) - Full support
+- **UTF-16LE** (Little Endian) - Full support
+- **UTF-16BE** (Big Endian) - Full support
 
-## Getting Started
+## Known Limitations
 
-1. Make sure you have the latest version of the xk6 tool installed:
+This extension aims for Web Platform Test (WPT) compliance but has some limitations due to the underlying `golang.org/x/text/transform` package architecture:
 
+### UTF-8 Streaming Limitations
+
+- **Invalid byte handling**: Immediate replacement character emission for obviously invalid UTF-8 bytes in streaming mode may not match WPT expectations exactly
+- **Cross-call sequence completion**: Complex scenarios where incomplete UTF-8 sequences are completed across multiple `decode()` calls may behave differently than the specification
+- **Specific cases**: `0xC0`, `0xC1`, `0xF5`-`0xFF` bytes and incomplete sequences followed by incompatible bytes
+
+### UTF-16 Streaming Limitations
+
+- **Fatal mode streaming**: UTF-16LE/BE streaming with fatal flag has limited support for complex state transitions
+- **Incomplete sequence handling**: Buffering and completion of incomplete UTF-16 sequences across streaming boundaries may not fully match specification behavior
+
+### General Notes
+
+- **Non-streaming mode**: Works correctly and passes WPT tests
+- **Basic streaming**: Simple streaming scenarios work as expected
+- **Core functionality**: All primary encoding/decoding operations are fully functional
+
+The extension prioritizes practical functionality for k6 performance testing scenarios while maintaining maximum possible compliance with web standards.
+
+## Installation
+
+To build a [k6](https://go.k6.io/k6) binary with this extension, first ensure you have the prerequisites:
+
+- [Go toolchain](https://go101.org/article/go-toolchain.html)
+- Git
+
+Then:
+
+1. Install [xk6](https://github.com/grafana/xk6):
 ```bash
 go install go.k6.io/xk6/cmd/xk6@latest
 ```
 
-2. Build your custom k6 binary:
+2. Build the binary:
+```bash
+xk6 build --with github.com/oleiade/xk6-encoding@latest
+```
+
+## Usage
+
+### TextEncoder
+
+```javascript
+import { TextEncoder } from 'k6/x/encoding';
+
+const encoder = new TextEncoder();
+
+// Basic encoding
+const encoded = encoder.encode('Hello, World!');
+console.log(encoded); // Uint8Array with UTF-8 bytes
+
+// Surrogate handling (works correctly)
+const withEmoji = encoder.encode('Hello 🌍 World');
+const withSurrogates = encoder.encode('\uD83C\uDF0D'); // 🌍 as surrogate pair
+
+// Empty string handling
+const empty = encoder.encode(); // Returns empty Uint8Array
+```
+
+### TextDecoder
+
+```javascript
+import { TextDecoder } from 'k6/x/encoding';
+
+// Basic usage
+const decoder = new TextDecoder();
+const bytes = new Uint8Array([72, 101, 108, 108, 111]);
+const decoded = decoder.decode(bytes);
+console.log(decoded); // "Hello"
+
+// With encoding specification
+const utf16Decoder = new TextDecoder('utf-16le');
+const utf16Bytes = new Uint8Array([72, 0, 101, 0, 108, 0, 108, 0, 111, 0]);
+const utf16Decoded = utf16Decoder.decode(utf16Bytes);
+console.log(utf16Decoded); // "Hello"
+
+// Streaming mode (basic scenarios work well)
+const streamDecoder = new TextDecoder();
+let result = '';
+result += streamDecoder.decode(new Uint8Array([72, 101]), {stream: true});
+result += streamDecoder.decode(new Uint8Array([108, 108, 111]));
+console.log(result); // "Hello"
+
+// Fatal mode
+const fatalDecoder = new TextDecoder('utf-8', {fatal: true});
+try {
+    fatalDecoder.decode(new Uint8Array([0xFF])); // Invalid UTF-8
+} catch (e) {
+    console.log('Decoding failed:', e.message);
+}
+
+// BOM handling
+const bomDecoder = new TextDecoder('utf-16le', {ignoreBOM: false});
+const withBom = new Uint8Array([0xFF, 0xFE, 72, 0, 105, 0]); // BOM + "Hi"
+console.log(bomDecoder.decode(withBom)); // "Hi"
+```
+
+### Constructor Options
+
+#### TextDecoder Options
+
+- `label` (string): The encoding label (default: "utf-8")
+  - Supported: "utf-8", "utf-16", "utf-16le", "utf-16be", and various aliases
+- `options.fatal` (boolean): Throw errors on invalid sequences (default: false)
+- `options.ignoreBOM` (boolean): Ignore byte order marks (default: false)
+
+#### Decode Options
+
+- `stream` (boolean): Enable streaming mode for chunked processing (default: false)
+  - Note: Complex invalid byte scenarios may have limitations
+
+## Error Handling
+
+The extension provides proper error handling following the Web API specification:
+
+- **RangeError**: Thrown for unsupported encodings
+- **TypeError**: Thrown for invalid sequences in fatal mode
+- **Replacement characters**: Invalid sequences replaced with U+FFFD in non-fatal mode
+
+## Examples
+
+### File Processing
+
+```javascript
+import { TextDecoder } from 'k6/x/encoding';
+import { open } from 'k6/experimental/fs';
+
+export default async function() {
+    const file = await open('data.txt');
+    const decoder = new TextDecoder();
+    
+    let content = '';
+    const buffer = new Uint8Array(1024);
+    
+    while (true) {
+        const bytesRead = await file.read(buffer);
+        if (bytesRead === 0) break;
+        
+        const chunk = buffer.slice(0, bytesRead);
+        content += decoder.decode(chunk, {stream: true});
+    }
+    
+    content += decoder.decode(); // Flush remaining data
+    console.log('File content:', content);
+}
+```
+
+### Different Encodings
+
+```javascript
+import { TextDecoder, TextEncoder } from 'k6/x/encoding';
+
+export default function() {
+    const text = "Hello, 世界! 🌍";
+    const encoder = new TextEncoder();
+    
+    // Encode to UTF-8
+    const utf8Bytes = encoder.encode(text);
+    
+    // Decode with different settings
+    const utf8Decoder = new TextDecoder('utf-8');
+    const decoded = utf8Decoder.decode(utf8Bytes);
+    
+    console.log('Original:', text);
+    console.log('Decoded:', decoded);
+    console.log('Match:', text === decoded);
+}
+```
+
+### Working with UTF-16
+
+```javascript
+import { TextDecoder } from 'k6/x/encoding';
+
+export default function() {
+    // UTF-16LE example
+    const utf16leDecoder = new TextDecoder('utf-16le');
+    const utf16leBytes = new Uint8Array([
+        0x48, 0x00,  // 'H'
+        0x65, 0x00,  // 'e'
+        0x6C, 0x00,  // 'l'
+        0x6C, 0x00,  // 'l'
+        0x6F, 0x00   // 'o'
+    ]);
+    console.log(utf16leDecoder.decode(utf16leBytes)); // "Hello"
+    
+    // UTF-16BE example
+    const utf16beDecoder = new TextDecoder('utf-16be');
+    const utf16beBytes = new Uint8Array([
+        0x00, 0x48,  // 'H'
+        0x00, 0x65,  // 'e'
+        0x00, 0x6C,  // 'l'
+        0x00, 0x6C,  // 'l'
+        0x00, 0x6F   // 'o'
+    ]);
+    console.log(utf16beDecoder.decode(utf16beBytes)); // "Hello"
+}
+```
+
+## Best Practices
+
+### For Reliable Streaming
+
+```javascript
+// ✅ Good: Simple streaming with complete UTF-8 sequences
+const decoder = new TextDecoder();
+let result = '';
+result += decoder.decode(new Uint8Array([0xE2, 0x9C, 0x85]), {stream: true}); // ✅
+result += decoder.decode(new Uint8Array([0x20, 0x47, 0x6F, 0x6F, 0x64])); // " Good"
+
+// ⚠️ May have limitations: Complex invalid byte scenarios
+// decoder.decode(new Uint8Array([0xF0]), {stream: true});
+// decoder.decode(new Uint8Array([0x41])); // May not handle optimally
+```
+
+### Error Handling
+
+```javascript
+// Handle encoding errors gracefully
+function safelyDecode(bytes, encoding = 'utf-8') {
+    try {
+        const decoder = new TextDecoder(encoding, {fatal: true});
+        return decoder.decode(bytes);
+    } catch (error) {
+        console.warn(`Decoding failed with ${encoding}, falling back to replacement characters`);
+        const fallbackDecoder = new TextDecoder(encoding, {fatal: false});
+        return fallbackDecoder.decode(bytes);
+    }
+}
+```
+
+## Development
+
+### Running Tests
+
+```bash
+# Run all tests
+go test ./...
+
+# Run with verbose output
+go test -v ./...
+
+# Run specific test
+go test -v -run TestTextDecoder ./encoding/
+```
+
+### Building
 
 ```bash
 xk6 build --with github.com/oleiade/xk6-encoding@latest
 ```
 
-3. Use in your k6 script:
-To encode text:
-
-```javascript
-import { TextEncoder } from 'k6/encoding';
-const encoder = new TextEncoder("utf-8");
-const encoded = encoder.Encode("Your text here");
-```
-
-To decode text:
-```javascript
-import { TextDecoder } from 'k6/encoding';
-const decoder = new TextDecoder("utf-8");
-const decoded = decoder.Decode(encodedData);
-```
-
-4. Run your k6 test with the custom k6 binary you built:
+### Code Quality
 
 ```bash
-./k6 run your-test-script.js
+# Format code
+go fmt ./...
+
+# Run linter (if available)
+golangci-lint run
+
+# Tidy dependencies
+go mod tidy
 ```
 
-## Supported Encodings
-
-* **utf-8**: Standard encoding for the web.
-* **utf-16le** and **utf-16be**: Unicode encodings that can represent any character in the Unicode standard.
-* **windows-1252**: A character encoding of the Latin alphabet, used by default in the legacy components of Microsoft Windows.
-
 ## Contributing
-Your contributions are always welcome! If you discover an issue or have a feature request, please open an issue on the GitHub repository.
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Areas for Contribution
+
+- Enhanced streaming support for edge cases
+- Additional encoding support
+- Performance optimizations
+- Test coverage improvements
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
