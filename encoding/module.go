@@ -145,6 +145,7 @@ func newTextDecoderObject(rt *sobek.Runtime, td *TextDecoder) *sobek.Object {
 			common.Throw(rt, err)
 		}
 
+
 		return rt.ToValue(decoded)
 	}
 

@@ -154,3 +154,15 @@ function test(func, name) {
         throw e;
     }
 }
+
+/**
+ * Create a buffer for testing purposes.
+ * This function creates ArrayBuffer instances for WPT compatibility.
+ *
+ * @param {string} _ The buffer type (ignored for compatibility).
+ * @param {number} size The size of the buffer to create.
+ * @returns {ArrayBuffer} A new ArrayBuffer of the specified size.
+ */
+function createBuffer(_, size) {
+    return new ArrayBuffer(size);
+}
