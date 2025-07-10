@@ -5,9 +5,9 @@ go 1.24.4
 require (
 	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994
 	github.com/grafana/sobek v0.0.0-20250723111835-dd8a13f0d439
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.10.0
 	go.k6.io/k6 v1.2.3
-	golang.org/x/text v0.29.0
+	golang.org/x/text v0.28.0
 )
 
 require (
@@ -90,7 +90,7 @@ require (
 	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/crypto/x509roots/fallback v0.0.0-20250414110644-0091fc8e7c69 // indirect
 	golang.org/x/net v0.43.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/term v0.34.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
