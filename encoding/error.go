@@ -3,13 +3,13 @@ package encoding
 import (
 	"fmt"
 
-	"github.com/dop251/goja"
+	"github.com/grafana/sobek"
 )
 
 // ErrorName is a type alias for the name of an encoding error.
 //
 // Note that it is a type alias, and not a binding, so that it
-// is not interpreted as an object by goja.
+// is not interpreted as an object by sobek.
 type ErrorName = string
 
 const (
@@ -33,8 +33,8 @@ type Error struct {
 }
 
 // JSError creates a JavaScript error object that can be thrown
-func (e *Error) JSError(rt *goja.Runtime) *goja.Object {
-	var constructor *goja.Object
+func (e *Error) JSError(rt *sobek.Runtime) *sobek.Object {
+	var constructor *sobek.Object
 
 	switch e.Name {
 	case TypeError:
@@ -68,8 +68,8 @@ func NewError(name, message string) *Error {
 }
 
 // NewJSError creates and throws a JavaScript error with the given type and message.
-func NewJSError(rt *goja.Runtime, name, message string) *goja.Object {
-	var constructor *goja.Object
+func NewJSError(rt *sobek.Runtime, name, message string) *sobek.Object {
+	var constructor *sobek.Object
 
 	switch name {
 	case TypeError:
