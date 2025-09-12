@@ -48,7 +48,7 @@ type TextDecoderOptions struct {
 type TextDecoderCommon struct {
 	// Encoding holds the name of the decoder which is a string describing
 	// the method the `TextDecoder` will use.
-	Encoding EncodingName `json:"encoding"`
+	Encoding Name `json:"encoding"`
 
 	// Fatal holds a boolean value indicating if
 	// the `TextDecoder.decode()`` method must throw
@@ -76,7 +76,7 @@ func NewTextDecoder(rt *sobek.Runtime, label string, options TextDecoderOptions)
 	}
 
 	// 1.
-	var enc EncodingName
+	var enc Name
 	var decoder encoding.Encoding
 	switch strings.TrimSpace(strings.ToLower(label)) {
 	case "",
@@ -129,7 +129,6 @@ func (td *TextDecoder) Decode(buffer []byte, options TextDecodeOptions) (string,
 	if td.decoder == nil {
 		return "", errors.New("encoding not set")
 	}
-	
 
 	// Set doNotFlush based on the stream option
 	doNotFlush := options.Stream
@@ -392,7 +391,6 @@ func (td *TextDecoder) Decode(buffer []byte, options TextDecodeOptions) (string,
 
 	decoded := string(dest[:destPos])
 
-
 	// In fatal mode, check if any replacement characters were inserted
 	if td.Fatal && decoded != "" {
 		// Check for UTF-8 replacement character (U+FFFD)
@@ -491,14 +489,13 @@ func detectInvalidUTF8Sequences(buffer []byte) (invalid [][]byte, valid []byte, 
 			invalidSeqs = append(invalidSeqs, []byte{b})
 			i++
 			continue
-		} else if b >= 0xF5 && b <= 0xFF {
 		} else if b >= 0xF5 {
 			// Invalid UTF-8 start bytes - emit replacement immediately
 			invalidSeqs = append(invalidSeqs, []byte{b})
 			i++
 			continue
 		}
-		
+
 		// Check for valid UTF-8 patterns
 		if b >= 0xC2 && b <= 0xDF {
 			// 2-byte sequence starter
@@ -743,10 +740,10 @@ type TextDecodeOptions struct {
 	Stream bool `json:"stream"`
 }
 
-// EncodingName is a type alias for the name of an encoding.
+// Name is a type alias for the name of an encoding.
 //
 //nolint:revive
-type EncodingName = string
+type Name = string
 
 const (
 	// UTF8EncodingFormat is the encoding format for utf-8
