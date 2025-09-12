@@ -12,7 +12,7 @@ import (
 type TextEncoder struct {
 	// Encoding always holds the `utf-8` value.
 	// FIXME: this should be TextEncoder.prototype.encoding instead
-	Encoding EncodingName
+	Encoding Name
 
 	encoder encoding.Encoding
 }
