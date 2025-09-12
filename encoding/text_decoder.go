@@ -410,11 +410,6 @@ func canCompleteUTF8Sequence(incompleteBuffer, newBytes []byte) bool {
 	return canCompleteUTF8SequenceImpl(incompleteBuffer, newBytes)
 }
 
-// CanCompleteUTF8SequenceDebug is exported for testing
-func CanCompleteUTF8SequenceDebug(incompleteBuffer, newBytes []byte) bool {
-	return canCompleteUTF8SequenceImpl(incompleteBuffer, newBytes)
-}
-
 func canCompleteUTF8SequenceImpl(incompleteBuffer, newBytes []byte) bool {
 	if len(incompleteBuffer) == 0 || len(newBytes) == 0 {
 		return false
@@ -548,7 +543,7 @@ func detectInvalidUTF8Sequences(buffer []byte) (invalid [][]byte, valid []byte, 
 				i += 3
 				continue
 			}
-		} else if b >= 0xF0 && b <= 0xF7 {
+		} else if b >= 0xF0 && b <= 0xF4 {
 			// 4-byte sequence starter
 			if i+1 >= len(buffer) {
 				// Incomplete sequence - save it separately
@@ -580,8 +575,7 @@ func detectInvalidUTF8Sequences(buffer []byte) (invalid [][]byte, valid []byte, 
 			} else {
 				// Check for overlong encodings and out-of-range values
 				if (b == 0xF0 && buffer[i+1] < 0x90) ||
-					(b == 0xF4 && buffer[i+1] >= 0x90) ||
-					b >= 0xF5 {
+					(b == 0xF4 && buffer[i+1] >= 0x90) {
 					// Overlong encoding or out of range - emit replacement
 					invalidSeqs = append(invalidSeqs, buffer[i:i+4])
 					i += 4
@@ -601,83 +595,6 @@ func detectInvalidUTF8Sequences(buffer []byte) (invalid [][]byte, valid []byte, 
 	}
 
 	return invalidSeqs, validBytes, incompleteBytes
-}
-
-// separateIncompleteUTF8Sequences separates complete sequences from incomplete ones
-// Returns the complete sequences and the length of incomplete sequences at the end
-func separateIncompleteUTF8Sequences(buffer []byte) ([]byte, int) {
-	if len(buffer) == 0 {
-		return buffer, 0
-	}
-
-	// Simple case: check if the last byte is a multi-byte sequence starter
-	lastByte := buffer[len(buffer)-1]
-	if lastByte >= 0xC0 && lastByte <= 0xDF {
-		// 2-byte sequence starter at the end - incomplete
-		return buffer[:len(buffer)-1], 1
-	} else if lastByte >= 0xE0 && lastByte <= 0xEF {
-		// 3-byte sequence starter at the end - incomplete
-		return buffer[:len(buffer)-1], 1
-	} else if lastByte >= 0xF0 && lastByte <= 0xF7 {
-		// 4-byte sequence starter at the end - incomplete
-		return buffer[:len(buffer)-1], 1
-	}
-
-	// For more complex cases with partial sequences, use a more thorough approach
-	// This handles cases where we have continuation bytes at the end
-	for i := len(buffer) - 1; i >= 0; i-- {
-		b := buffer[i]
-
-		if b >= 0xC0 && b <= 0xDF {
-			// 2-byte sequence starter
-			expectedLen := 2
-			actualLen := len(buffer) - i
-			if actualLen < expectedLen {
-				return buffer[:i], actualLen
-			}
-		} else if b >= 0xE0 && b <= 0xEF {
-			// 3-byte sequence starter
-			expectedLen := 3
-			actualLen := len(buffer) - i
-			if actualLen < expectedLen {
-				return buffer[:i], actualLen
-			}
-		} else if b >= 0xF0 && b <= 0xF7 {
-			// 4-byte sequence starter
-			expectedLen := 4
-			actualLen := len(buffer) - i
-			if actualLen < expectedLen {
-				return buffer[:i], actualLen
-			}
-		}
-	}
-
-	// No incomplete sequence found
-	return buffer, 0
-}
-
-// isIncompleteUTF8Sequence checks if the given bytes form an incomplete UTF-8 sequence
-func isIncompleteUTF8Sequence(bytes []byte) bool {
-	if len(bytes) == 0 {
-		return false
-	}
-
-	b := bytes[0]
-
-	// Check if it's a multi-byte sequence starter
-	if b >= 0xC0 && b <= 0xDF {
-		// 2-byte sequence starter
-		return len(bytes) < 2
-	} else if b >= 0xE0 && b <= 0xEF {
-		// 3-byte sequence starter
-		return len(bytes) < 3
-	} else if b >= 0xF0 && b <= 0xF7 {
-		// 4-byte sequence starter
-		return len(bytes) < 4
-	}
-
-	// Single byte or invalid starter
-	return false
 }
 
 // isValidUTF8ContinuationByte checks if a byte is a valid continuation byte
@@ -760,10 +677,6 @@ const (
 type ErrorMode = string
 
 const (
-	// ReplacementErrorMode is the error mode for replacing
-	// invalid characters with the replacement character.
-	ReplacementErrorMode ErrorMode = "replacement"
-
 	// FatalErrorMode is the error mode for throwing a
 	// TypeError when an invalid character is encountered.
 	FatalErrorMode ErrorMode = "fatal"

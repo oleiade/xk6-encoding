@@ -67,26 +67,4 @@ func NewError(name, message string) *Error {
 	}
 }
 
-// NewJSError creates and throws a JavaScript error with the given type and message.
-func NewJSError(rt *sobek.Runtime, name, message string) *sobek.Object {
-	var constructor *sobek.Object
-
-	switch name {
-	case TypeError:
-		constructor = rt.Get("TypeError").ToObject(rt)
-	case RangeError:
-		constructor = rt.Get("RangeError").ToObject(rt)
-	default:
-		constructor = rt.Get("Error").ToObject(rt)
-	}
-
-	errorObj, err := rt.New(constructor, rt.ToValue(message))
-	if err != nil {
-		// Fallback to generic error
-		errorObj = rt.ToValue(fmt.Errorf("%s: %s", name, message)).ToObject(rt)
-	}
-
-	return errorObj
-}
-
 var _ error = (*Error)(nil)

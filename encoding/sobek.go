@@ -40,7 +40,7 @@ func exportArrayBuffer(rt *sobek.Runtime, v sobek.Value) ([]byte, error) {
 	var ab sobek.ArrayBuffer
 	var ok bool
 
-	if IsTypedArray(rt, v) {
+	if IsTypedArray(rt, v) { //nolint:nestif
 		ab, ok = asObject.Get("buffer").Export().(sobek.ArrayBuffer)
 		if !ok {
 			return nil, errors.New("TypedArray.buffer is not an ArrayBuffer")
@@ -118,9 +118,6 @@ func IsTypedArray(rt *sobek.Runtime, v sobek.Value) bool {
 type JSType string
 
 const (
-	// ArrayBufferConstructor is the name of the ArrayBufferConstructor constructor
-	ArrayBufferConstructor JSType = "ArrayBuffer"
-
 	// DataViewConstructor is the name of the DataView constructor
 	DataViewConstructor = "DataView"
 
