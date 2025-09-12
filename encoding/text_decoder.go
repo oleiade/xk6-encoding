@@ -492,6 +492,7 @@ func detectInvalidUTF8Sequences(buffer []byte) (invalid [][]byte, valid []byte, 
 			i++
 			continue
 		} else if b >= 0xF5 && b <= 0xFF {
+		} else if b >= 0xF5 {
 			// Invalid UTF-8 start bytes - emit replacement immediately
 			invalidSeqs = append(invalidSeqs, []byte{b})
 			i++
