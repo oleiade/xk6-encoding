@@ -143,7 +143,6 @@ func newTextDecoderObject(rt *sobek.Runtime, td *TextDecoder) *sobek.Object {
 			common.Throw(rt, err)
 		}
 
-
 		return rt.ToValue(decoded)
 	}
 
@@ -194,7 +193,7 @@ func newTextEncoderObject(rt *sobek.Runtime, te *TextEncoder) *sobek.Object {
 		} else {
 			text = s.String()
 		}
-		
+
 		buffer, err := te.Encode(text)
 		if err != nil {
 			common.Throw(rt, err)

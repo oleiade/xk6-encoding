@@ -124,520 +124,307 @@ func NewTextDecoder(rt *sobek.Runtime, label string, options TextDecoderOptions)
 	return td, nil
 }
 
+// replacementCharUTF8 is the UTF-8 encoded form of U+FFFD.
+var replacementCharUTF8 = []byte{0xEF, 0xBF, 0xBD}
+
 // Decode takes a byte stream as input and returns a string.
 func (td *TextDecoder) Decode(buffer []byte, options TextDecodeOptions) (string, error) {
 	if td.decoder == nil {
 		return "", errors.New("encoding not set")
 	}
 
-	// Set doNotFlush based on the stream option
-	doNotFlush := options.Stream
+	if td.Encoding == UTF8EncodingFormat {
+		return td.decodeUTF8(buffer, options)
+	}
 
-	// Create the transformer if it's not already created
+	return td.decodeUTF16(buffer, options)
+}
+
+func (td *TextDecoder) decodeUTF8(buffer []byte, options TextDecodeOptions) (string, error) {
+	stream := options.Stream
+
 	if td.transform == nil {
-		var transformer transform.Transformer
 		decoder := td.decoder.NewDecoder()
-
-		// Configure decoder for BOM handling
 		if !td.IgnoreBOM {
-			transformer = unicode.BOMOverride(decoder)
+			td.transform = unicode.BOMOverride(decoder)
 		} else {
-			transformer = decoder
-		}
-		td.transform = transformer
-	}
-
-	// Store the previous buffer state to detect incomplete sequences
-	var prevIncompleteBytes []byte
-	if len(td.buffer) > 0 {
-		prevIncompleteBytes = make([]byte, len(td.buffer))
-		copy(prevIncompleteBytes, td.buffer)
-	}
-
-	// Append the new buffer to the internal buffer
-	if len(buffer) > 0 {
-		td.buffer = append(td.buffer, buffer...)
-	}
-
-	// For UTF-8 in streaming mode, detect and handle invalid sequences immediately
-	var replacementCount int
-	var incompleteSequences []byte
-	if td.Encoding == UTF8EncodingFormat && len(td.buffer) > 0 {
-		if doNotFlush {
-			// In streaming mode, always detect invalid bytes first
-			if len(prevIncompleteBytes) > 0 {
-				if len(buffer) > 0 {
-					// Check if the new bytes can complete the previous incomplete sequence
-					if !canCompleteUTF8Sequence(prevIncompleteBytes, buffer) {
-						// The previous incomplete sequence cannot be completed
-						// Emit replacement characters for it and process new bytes separately
-						replacementCount = 1 // One replacement for the incomplete sequence
-
-						// Reset the transformer to ensure clean state for processing new valid bytes
-						td.transform.Reset()
-
-						// Process only the new bytes, not the incomplete sequence
-						invalidSeqs, validBytes, incompleteBytes := detectInvalidUTF8Sequences(buffer)
-						replacementCount += len(invalidSeqs)
-						td.buffer = validBytes
-						incompleteSequences = incompleteBytes
-
-					} else {
-						// The new bytes might complete the sequence, process normally
-						invalidSeqs, validBytes, incompleteBytes := detectInvalidUTF8Sequences(td.buffer)
-						replacementCount = len(invalidSeqs)
-						td.buffer = validBytes
-						incompleteSequences = incompleteBytes
-					}
-				} else {
-					// No new bytes, but we have previous incomplete sequences
-					// This is the case for decode(undefined) - we should flush the incomplete sequence
-					// But since we're in streaming mode, we need to preserve it for later
-					invalidSeqs, validBytes, incompleteBytes := detectInvalidUTF8Sequences(td.buffer)
-					replacementCount = len(invalidSeqs)
-					td.buffer = validBytes
-					incompleteSequences = incompleteBytes
-				}
-			} else {
-				// No previous incomplete sequences - detect invalid bytes in all new data
-				invalidSeqs, validBytes, incompleteBytes := detectInvalidUTF8Sequences(td.buffer)
-				replacementCount = len(invalidSeqs)
-				td.buffer = validBytes
-				incompleteSequences = incompleteBytes
-			}
-		}
-		// In flush mode (!doNotFlush), we'll handle incomplete sequences in the flush section
-	}
-
-	// Prepare the dest buffer (account for replacement characters)
-	// Ensure minimum size for at least one replacement character in case of incomplete sequences
-	minSize := len(td.buffer)*4 + replacementCount*3
-	if minSize < 12 { // At least space for 4 replacement characters
-		minSize = 12
-	}
-	dest := make([]byte, minSize)
-	destPos := 0
-
-	// Add replacement characters for invalid sequences found in streaming mode
-	for i := 0; i < replacementCount; i++ {
-		copy(dest[destPos:], []byte{0xEF, 0xBF, 0xBD}) // UTF-8 encoded replacement character
-		destPos += 3
-	}
-
-	// Transform valid bytes
-	src := td.buffer
-	atEOF := !doNotFlush
-
-	newDestPos, srcPos, err := td.transform.Transform(dest[destPos:], src, atEOF)
-	destPos += newDestPos
-
-	// Keep any remaining src bytes in td.buffer plus incomplete sequences
-	if doNotFlush && td.Encoding == UTF8EncodingFormat && len(incompleteSequences) > 0 {
-		// Keep any unprocessed bytes plus the incomplete sequences
-		remainingProcessed := td.buffer[srcPos:]
-		td.buffer = append(remainingProcessed, incompleteSequences...)
-	} else {
-		td.buffer = td.buffer[srcPos:]
-	}
-
-	// Handle incomplete sequences in streaming mode
-	if err != nil && errors.Is(err, transform.ErrShortSrc) && doNotFlush {
-		// For UTF-16 encodings, we need to handle incomplete 2-byte sequences
-		if td.Encoding == UTF16LEEncodingFormat || td.Encoding == UTF16BEEncodingFormat {
-			// UTF-16 characters are 2 bytes each (ignoring surrogates for now)
-			// If we have odd number of bytes, keep the last byte buffered
-			if len(td.buffer) > 0 {
-				// This is expected for UTF-16 streaming with incomplete sequences
-				// Just keep the incomplete bytes in the buffer
-				err = nil
-			}
-		} else if len(incompleteSequences) > 0 {
-			// For UTF-8, if we deliberately separated incomplete sequences, don't process them now
-			// Just clear the error and keep the incomplete sequences in the buffer
-			err = nil
-		} else {
-			// For UTF-8, ErrShortSrc in streaming mode means we have incomplete sequences
-			// Try to process complete characters by forcing atEOF=true for malformed sequences
-			if len(td.buffer) > 0 {
-				// Try to process the buffer with atEOF=true to get replacement characters
-				tempDest := make([]byte, len(td.buffer)*4)
-				tempDestPos, tempSrcPos, tempErr := td.transform.Transform(tempDest, td.buffer, true)
-
-				// If we successfully processed some characters, use that result
-				if tempErr == nil || tempSrcPos > 0 {
-					copy(dest[destPos:], tempDest[:tempDestPos])
-					destPos += tempDestPos
-					td.buffer = td.buffer[tempSrcPos:]
-					err = nil
-				} else {
-					// Just clear the error - keep bytes buffered
-					err = nil
-				}
-			} else {
-				err = nil
-			}
+			td.transform = decoder
 		}
 	}
 
-	// Handle other errors
-	if err != nil && !errors.Is(err, transform.ErrShortSrc) && !errors.Is(err, transform.ErrShortDst) {
+	combined := append(td.buffer, buffer...)
+	td.buffer = td.buffer[:0]
+
+	processed, leftover, hadInvalid := sanitizeUTF8Bytes(combined, stream)
+	if len(leftover) > 0 {
+		td.buffer = append(td.buffer, leftover...)
+	}
+
+	atEOF := !stream
+	if stream && len(td.buffer) == 0 {
+		atEOF = true
+	}
+
+	decoded, _, err := td.applyTransform(processed, atEOF)
+	if err != nil && !errors.Is(err, transform.ErrShortDst) && !errors.Is(err, transform.ErrShortSrc) {
 		if td.Fatal {
+			td.resetState()
 			return "", NewError(TypeError, "unable to decode text; reason: "+err.Error())
 		}
-		// In non-fatal mode, continue with replacement characters
-		// The golang.org/x/text/transform package should handle this automatically
+		return "", err
 	}
 
-	// Reset the transformer and buffer when not streaming
-	if !doNotFlush {
-		// If we're not streaming (flushing), any remaining bytes should be treated as incomplete sequences
-		if len(td.buffer) > 0 {
-			// For UTF-8, directly count and handle incomplete sequences
-			if td.Encoding == UTF8EncodingFormat {
-				flushReplacementCount := 0
-				i := 0
-
-				for i < len(td.buffer) {
-					b := td.buffer[i]
-					if b < 0x80 {
-						// ASCII character - should have been processed already, but handle it
-						i++
-					} else if b >= 0xC0 && b <= 0xDF {
-						// 2-byte sequence starter - incomplete since we're in flush mode
-						flushReplacementCount++
-						i++
-					} else if b >= 0xE0 && b <= 0xEF {
-						// 3-byte sequence starter - incomplete since we're in flush mode
-						flushReplacementCount++
-						i++
-					} else if b >= 0xF0 && b <= 0xF7 {
-						// 4-byte sequence starter - incomplete since we're in flush mode
-						flushReplacementCount++
-						i++
-					} else {
-						// Invalid byte (continuation byte without starter, or invalid range)
-						flushReplacementCount++
-						i++
-					}
-				}
-
-				// Add replacement characters for the incomplete sequences
-				if flushReplacementCount > 0 {
-					// Make sure we have enough space in dest
-					needed := flushReplacementCount * 3 // UTF-8 replacement char is 3 bytes
-					if destPos+needed > len(dest) {
-						// Reallocate dest if needed
-						newDest := make([]byte, destPos+needed)
-						copy(newDest, dest[:destPos])
-						dest = newDest
-					}
-
-					// Add replacement characters for incomplete sequences
-					for j := 0; j < flushReplacementCount; j++ {
-						// Make sure we have enough space
-						if destPos+3 > len(dest) {
-							newDest := make([]byte, destPos+3)
-							copy(newDest, dest[:destPos])
-							dest = newDest
-						}
-						copy(dest[destPos:], "\uFFFD")
-						destPos += 3
-					}
-				}
-			} else {
-				// For UTF-16, try to process remaining bytes with atEOF=true first
-				tempDest := make([]byte, len(td.buffer)*4)
-				tempDestPos, _, tempErr := td.transform.Transform(tempDest, td.buffer, true)
-
-				// If we got some output, append it
-				if tempDestPos > 0 {
-					// Make sure we have enough space in dest
-					if destPos+tempDestPos > len(dest) {
-						// Reallocate dest if needed
-						newDest := make([]byte, destPos+tempDestPos)
-						copy(newDest, dest[:destPos])
-						dest = newDest
-					}
-					copy(dest[destPos:], tempDest[:tempDestPos])
-					destPos += tempDestPos
-				}
-
-				// If there was an error or we didn't process all bytes, add replacement characters
-				if tempErr != nil || tempDestPos == 0 {
-					// Any remaining bytes are incomplete sequences
-					// Each incomplete sequence gets one replacement character
-					if len(td.buffer) > 0 {
-						// Make sure we have enough space in dest
-						needed := 3 // UTF-8 replacement char is 3 bytes
-						if destPos+needed > len(dest) {
-							// Reallocate dest if needed
-							newDest := make([]byte, destPos+needed)
-							copy(newDest, dest[:destPos])
-							dest = newDest
-						}
-
-						// Add one replacement character for the incomplete UTF-16 sequence
-						copy(dest[destPos:], "\uFFFD")
-						destPos += 3
-					}
-				}
-			}
-		}
-
-		td.transform.Reset()
-		td.transform = nil
-		td.buffer = nil
+	if td.Fatal && hadInvalid {
+		td.resetState()
+		return "", NewError(TypeError, "invalid byte sequence")
 	}
 
-	decoded := string(dest[:destPos])
-
-	// In fatal mode, check if any replacement characters were inserted
-	if td.Fatal && decoded != "" {
-		// Check for UTF-8 replacement character (U+FFFD)
-		for _, r := range decoded {
-			if r == '\uFFFD' {
-				return "", NewError(TypeError, "invalid byte sequence")
-			}
-		}
+	if !stream {
+		td.resetState()
 	}
 
 	return decoded, nil
 }
 
-// canCompleteUTF8Sequence checks if the new bytes can potentially complete
-// the incomplete UTF-8 sequence in the buffer
-func canCompleteUTF8Sequence(incompleteBuffer, newBytes []byte) bool {
-	return canCompleteUTF8SequenceImpl(incompleteBuffer, newBytes)
-}
+func (td *TextDecoder) decodeUTF16(buffer []byte, options TextDecodeOptions) (string, error) {
+	stream := options.Stream
 
-func canCompleteUTF8SequenceImpl(incompleteBuffer, newBytes []byte) bool {
-	if len(incompleteBuffer) == 0 || len(newBytes) == 0 {
-		return false
+	if td.transform == nil {
+		td.transform = td.decoder.NewDecoder()
 	}
 
-	// Check the first byte to determine expected sequence length
-	firstByte := incompleteBuffer[0]
-	var expectedLength int
+	// Keep td.buffer as the canonical byte queue so sequences that span multiple
+	// calls (e.g., surrogate pairs) remain intact until the transformer consumes
+	// them.
+	td.buffer = append(td.buffer, buffer...)
 
-	if firstByte&0x80 == 0 {
-		// ASCII character (0xxxxxxx) - already complete
-		return false
-	} else if firstByte&0xE0 == 0xC0 {
-		// 2-byte sequence (110xxxxx)
-		expectedLength = 2
-	} else if firstByte&0xF0 == 0xE0 {
-		// 3-byte sequence (1110xxxx)
-		expectedLength = 3
-	} else if firstByte&0xF8 == 0xF0 {
-		// 4-byte sequence (11110xxx)
-		expectedLength = 4
+	processLen := len(td.buffer)
+	var pending []byte
+
+	if stream {
+		if processLen%2 == 1 {
+			processLen--
+		}
+	} else if processLen%2 == 1 {
+		pending = append(pending, td.buffer[processLen-1])
+		processLen--
+	}
+
+	var decoded string
+	var err error
+	consumed := 0
+
+	if processLen > 0 {
+		toDecode := td.buffer[:processLen]
+		decoded, consumed, err = td.applyTransform(toDecode, !stream)
+		td.buffer = append(td.buffer[:0], td.buffer[consumed:]...)
 	} else {
-		// Invalid UTF-8 start byte
-		return false
+		decoded, _, err = td.applyTransform(nil, !stream)
+	}
+	if err != nil && !errors.Is(err, transform.ErrShortDst) && !errors.Is(err, transform.ErrShortSrc) {
+		if td.Fatal {
+			td.resetState()
+			return "", NewError(TypeError, "unable to decode text; reason: "+err.Error())
+		}
+		return "", err
 	}
 
-	// Check if we have enough bytes to complete the sequence
-	totalBytesNeeded := expectedLength - len(incompleteBuffer)
-	if len(newBytes) < totalBytesNeeded {
-		// Not enough bytes, might be able to complete later
-		// Check if all new bytes are valid continuation bytes and follow UTF-8 rules
-		for i, b := range newBytes {
-			if !isValidUTF8ContinuationByte(incompleteBuffer, i+len(incompleteBuffer), b) {
-				return false
+	var builder strings.Builder
+	builder.WriteString(decoded)
+
+	hadInvalid := false
+	if len(pending) > 0 {
+		hadInvalid = true
+		if td.Fatal {
+			td.resetState()
+			return "", NewError(TypeError, "invalid byte sequence")
+		}
+		builder.WriteRune('\uFFFD')
+	}
+
+	result := builder.String()
+
+	if td.Fatal {
+		for _, r := range result {
+			if r == '\uFFFD' {
+				td.resetState()
+				return "", NewError(TypeError, "invalid byte sequence")
 			}
 		}
-		return true // Could potentially complete with more bytes
 	}
 
-	// We have enough bytes, check if the first `totalBytesNeeded` bytes
-	// are valid continuation bytes and follow UTF-8 rules
-	for i := 0; i < totalBytesNeeded; i++ {
-		if !isValidUTF8ContinuationByte(incompleteBuffer, i+len(incompleteBuffer), newBytes[i]) {
-			return false
+	if !stream {
+		td.resetState()
+	}
+
+	if hadInvalid {
+		return result, nil
+	}
+
+	return result, nil
+}
+
+func (td *TextDecoder) applyTransform(input []byte, atEOF bool) (string, int, error) {
+	if td.transform == nil {
+		return "", 0, errors.New("transformer not initialized")
+	}
+
+	if len(input) == 0 {
+		if atEOF {
+			empty := make([]byte, 0)
+			if _, _, err := td.transform.Transform(empty, empty, true); err != nil &&
+				!errors.Is(err, transform.ErrShortDst) &&
+				!errors.Is(err, transform.ErrShortSrc) {
+				return "", 0, err
+			}
+		}
+		return "", 0, nil
+	}
+
+	destSize := len(input)*4 + 64
+	if destSize < 64 {
+		destSize = 64
+	}
+	dest := make([]byte, destSize)
+
+	var (
+		builder  strings.Builder
+		src      = input
+		consumed int
+	)
+
+	for len(src) > 0 {
+		nDst, nSrc, err := td.transform.Transform(dest, src, atEOF)
+		builder.Write(dest[:nDst])
+		src = src[nSrc:]
+		consumed += nSrc
+
+		if err == nil {
+			continue
+		}
+
+		if errors.Is(err, transform.ErrShortDst) {
+			if nSrc == 0 {
+				dest = make([]byte, len(dest)*2)
+			}
+			continue
+		}
+
+		if errors.Is(err, transform.ErrShortSrc) && !atEOF {
+			break
+		}
+
+		if !errors.Is(err, transform.ErrShortSrc) && !errors.Is(err, transform.ErrShortDst) {
+			return "", consumed, err
 		}
 	}
 
-	return true
+	return builder.String(), consumed, nil
 }
 
-// detectInvalidUTF8Sequences detects invalid UTF-8 patterns that should immediately emit replacement characters
-// Returns invalid sequences, valid bytes, and incomplete sequences separately
-func detectInvalidUTF8Sequences(buffer []byte) (invalid [][]byte, valid []byte, incomplete []byte) {
-	var invalidSeqs [][]byte
-	validBytes := make([]byte, 0, len(buffer))
-	var incompleteBytes []byte
+func (td *TextDecoder) resetState() {
+	if td.transform != nil {
+		td.transform.Reset()
+		td.transform = nil
+	}
+	td.buffer = nil
+}
 
-	i := 0
-	for i < len(buffer) {
-		b := buffer[i]
+func sanitizeUTF8Bytes(data []byte, stream bool) (processed []byte, leftover []byte, hadInvalid bool) {
+	if len(data) == 0 {
+		return nil, nil, false
+	}
 
-		// ASCII bytes are always valid
+	processed = make([]byte, 0, len(data))
+
+	for i := 0; i < len(data); {
+		b := data[i]
+
 		if b < 0x80 {
-			validBytes = append(validBytes, b)
+			processed = append(processed, b)
 			i++
 			continue
 		}
 
-		// Check for immediately invalid UTF-8 bytes
-		if b == 0xC0 || b == 0xC1 {
-			// Invalid overlong encoding starters - emit replacement immediately
-			invalidSeqs = append(invalidSeqs, []byte{b})
-			i++
-			continue
-		} else if b >= 0xF5 {
-			// Invalid UTF-8 start bytes - emit replacement immediately
-			invalidSeqs = append(invalidSeqs, []byte{b})
+		var needed int
+		switch {
+		case b >= 0xC2 && b <= 0xDF:
+			needed = 2
+		case b >= 0xE0 && b <= 0xEF:
+			needed = 3
+		case b >= 0xF0 && b <= 0xF4:
+			needed = 4
+		default:
+			hadInvalid = true
+			processed = append(processed, replacementCharUTF8...)
 			i++
 			continue
 		}
 
-		// Check for valid UTF-8 patterns
-		if b >= 0xC2 && b <= 0xDF {
-			// 2-byte sequence starter
-			if i+1 >= len(buffer) {
-				// Incomplete sequence - save it separately, don't pass to transform
-				incompleteBytes = append(incompleteBytes, buffer[i:]...)
-				break
-			} else if buffer[i+1]&0xC0 != 0x80 {
-				// Invalid continuation byte - emit replacement for starter byte
-				invalidSeqs = append(invalidSeqs, []byte{b})
-				i++
-				continue
-			} else {
-				// Valid 2-byte sequence
-				validBytes = append(validBytes, buffer[i:i+2]...)
-				i += 2
-				continue
-			}
-		} else if b >= 0xE0 && b <= 0xEF {
-			// 3-byte sequence starter
-			if i+1 >= len(buffer) {
-				// Incomplete sequence - save it separately
-				incompleteBytes = append(incompleteBytes, buffer[i:]...)
-				break
-			} else if buffer[i+1]&0xC0 != 0x80 {
-				// Invalid continuation byte - emit replacement for starter byte
-				invalidSeqs = append(invalidSeqs, []byte{b})
-				i++
-				continue
-			} else if i+2 >= len(buffer) {
-				// Incomplete sequence - save it separately
-				incompleteBytes = append(incompleteBytes, buffer[i:]...)
-				break
-			} else if buffer[i+2]&0xC0 != 0x80 {
-				// Invalid second continuation byte - emit replacement for incomplete sequence
-				invalidSeqs = append(invalidSeqs, buffer[i:i+2])
-				i += 2
-				continue
-			} else {
-				// Check for overlong encodings and surrogates
-				if (b == 0xE0 && buffer[i+1] < 0xA0) ||
-					(b == 0xED && buffer[i+1] >= 0xA0) {
-					// Overlong encoding or surrogate - emit replacement
-					invalidSeqs = append(invalidSeqs, buffer[i:i+3])
-					i += 3
-					continue
+		validCount := 0
+		incomplete := false
+		for j := 1; j < needed; j++ {
+			idx := i + j
+			if idx >= len(data) {
+				if stream {
+					leftover = append([]byte{}, data[i:]...)
+					return processed, leftover, hadInvalid
 				}
-				// Valid 3-byte sequence
-				validBytes = append(validBytes, buffer[i:i+3]...)
-				i += 3
-				continue
+				incomplete = true
+				break
 			}
-		} else if b >= 0xF0 && b <= 0xF4 {
-			// 4-byte sequence starter
-			if i+1 >= len(buffer) {
-				// Incomplete sequence - save it separately
-				incompleteBytes = append(incompleteBytes, buffer[i:]...)
-				break
-			} else if buffer[i+1]&0xC0 != 0x80 {
-				// Invalid continuation byte - emit replacement for starter byte
-				invalidSeqs = append(invalidSeqs, []byte{b})
-				i++
-				continue
-			} else if i+2 >= len(buffer) {
-				// Incomplete sequence - save it separately
-				incompleteBytes = append(incompleteBytes, buffer[i:]...)
-				break
-			} else if buffer[i+2]&0xC0 != 0x80 {
-				// Invalid second continuation byte - emit replacement for incomplete sequence
-				invalidSeqs = append(invalidSeqs, buffer[i:i+2])
-				i += 2
-				continue
-			} else if i+3 >= len(buffer) {
-				// Incomplete sequence - save it separately
-				incompleteBytes = append(incompleteBytes, buffer[i:]...)
-				break
-			} else if buffer[i+3]&0xC0 != 0x80 {
-				// Invalid third continuation byte - emit replacement for incomplete sequence
-				invalidSeqs = append(invalidSeqs, buffer[i:i+3])
-				i += 3
-				continue
-			} else {
-				// Check for overlong encodings and out-of-range values
-				if (b == 0xF0 && buffer[i+1] < 0x90) ||
-					(b == 0xF4 && buffer[i+1] >= 0x90) {
-					// Overlong encoding or out of range - emit replacement
-					invalidSeqs = append(invalidSeqs, buffer[i:i+4])
-					i += 4
-					continue
-				}
-				// Valid 4-byte sequence
-				validBytes = append(validBytes, buffer[i:i+4]...)
-				i += 4
-				continue
+
+			cb := data[idx]
+			if !isValidContinuationByte(cb) || !passesUTF8RangeChecks(b, j, cb) {
+				hadInvalid = true
+				processed = append(processed, replacementCharUTF8...)
+				i += 1 + validCount
+				goto nextSequence
 			}
-		} else {
-			// Invalid byte (0x80-0xBF standalone)
-			invalidSeqs = append(invalidSeqs, []byte{b})
-			i++
+			validCount++
+		}
+
+		if incomplete {
+			hadInvalid = true
+			processed = append(processed, replacementCharUTF8...)
+			i += 1 + validCount
 			continue
 		}
+
+		processed = append(processed, data[i:i+needed]...)
+		i += needed
+		continue
+
+	nextSequence:
+		continue
 	}
 
-	return invalidSeqs, validBytes, incompleteBytes
+	return processed, leftover, hadInvalid
 }
 
-// isValidUTF8ContinuationByte checks if a byte is a valid continuation byte
-// for a UTF-8 sequence at the given position
-func isValidUTF8ContinuationByte(incompleteBuffer []byte, position int, b byte) bool {
-	// All continuation bytes must have the pattern 10xxxxxx
-	if b&0xC0 != 0x80 {
-		return false
+func isValidContinuationByte(b byte) bool {
+	return b&0xC0 == 0x80
+}
+
+func passesUTF8RangeChecks(start byte, position int, cont byte) bool {
+	switch start {
+	case 0xE0:
+		if position == 1 {
+			return cont >= 0xA0 && cont <= 0xBF
+		}
+	case 0xED:
+		if position == 1 {
+			return cont >= 0x80 && cont <= 0x9F
+		}
+	case 0xF0:
+		if position == 1 {
+			return cont >= 0x90 && cont <= 0xBF
+		}
+	case 0xF4:
+		if position == 1 {
+			return cont >= 0x80 && cont <= 0x8F
+		}
 	}
-
-	// Additional validation based on the first byte and position
-	if len(incompleteBuffer) == 0 {
-		return false
-	}
-
-	firstByte := incompleteBuffer[0]
-
-	// For 4-byte sequences starting with 0xF0, the second byte must be 0x90-0xBF
-	if firstByte == 0xF0 && position == 1 {
-		return b >= 0x90 && b <= 0xBF
-	}
-
-	// For 4-byte sequences starting with 0xF4, the second byte must be 0x80-0x8F
-	if firstByte == 0xF4 && position == 1 {
-		return b >= 0x80 && b <= 0x8F
-	}
-
-	// For 3-byte sequences starting with 0xE0, the second byte must be 0xA0-0xBF
-	if firstByte == 0xE0 && position == 1 {
-		return b >= 0xA0 && b <= 0xBF
-	}
-
-	// For 3-byte sequences starting with 0xED, the second byte must be 0x80-0x9F
-	if firstByte == 0xED && position == 1 {
-		return b >= 0x80 && b <= 0x9F
-	}
-
-	// For 2-byte sequences starting with 0xC0 or 0xC1, they are invalid
-	if (firstByte == 0xC0 || firstByte == 0xC1) && position == 1 {
-		return false
-	}
-
-	// For other cases, any continuation byte is valid
 	return true
 }
 
