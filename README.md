@@ -19,26 +19,24 @@ A [k6](https://go.k6.io/k6) extension that provides JavaScript's TextEncoder and
 
 ## Known Limitations
 
-This extension aims for Web Platform Test (WPT) compliance but has some limitations due to the underlying `golang.org/x/text/transform` package architecture:
+The extension now passes the WPT suites we imported for UTF-8 and UTF-16 (including the previously skipped streaming cases), but there are still a few practical constraints to keep in mind:
 
-### UTF-8 Streaming Limitations
+### Encoding coverage
 
-- **Invalid byte handling**: Immediate replacement character emission for obviously invalid UTF-8 bytes in streaming mode may not match WPT expectations exactly
-- **Cross-call sequence completion**: Complex scenarios where incomplete UTF-8 sequences are completed across multiple `decode()` calls may behave differently than the specification
-- **Specific cases**: `0xC0`, `0xC1`, `0xF5`-`0xFF` bytes and incomplete sequences followed by incompatible bytes
+- Only UTF-8, UTF-16LE, and UTF-16BE are implemented. Other legacy encodings from the Encoding Living Standard are intentionally out of scope for now.
+- `TextEncoder` always emits UTF-8 as per the platform API. Supplying other labels to its constructor has no effect beyond surfacing the canonical name in `.encoding`.
 
-### UTF-16 Streaming Limitations
+### API surface
 
-- **Fatal mode streaming**: UTF-16LE/BE streaming with fatal flag has limited support for complex state transitions
-- **Incomplete sequence handling**: Buffering and completion of incomplete UTF-16 sequences across streaming boundaries may not fully match specification behavior
+- The streaming helper interfaces (`TextDecoderStream`, `TransformStream`, etc.) are not exposed. Use repeated `decode()` calls with `{ stream: true }` instead.
+- `SharedArrayBuffer` inputs are supported inside the embedded WPT harness we ship, but k6 itself currently only exposes `ArrayBuffer`/TypedArray in regular scripts.
 
-### General Notes
+### Operational notes
 
-- **Non-streaming mode**: Works correctly and passes WPT tests
-- **Basic streaming**: Simple streaming scenarios work as expected
-- **Core functionality**: All primary encoding/decoding operations are fully functional
+- Streaming relies on the Go `golang.org/x/text/transform` package under the hood. While our state machine ensures spec-compliant behavior for UTF-8/UTF-16, extremely memory-constrained scenarios may want to reuse decoder instances instead of constructing them per chunk.
+- Fatal-mode decoding matches WPT behavior, but be mindful that it raises `TypeError` on the first bad sequence—plan your error handling accordingly.
 
-The extension prioritizes practical functionality for k6 performance testing scenarios while maintaining maximum possible compliance with web standards.
+For most k6 use cases this means you can treat the extension as a drop-in replacement for browser `TextEncoder`/`TextDecoder` when working with UTF-8/UTF-16 data.
 
 ## Installation
 
