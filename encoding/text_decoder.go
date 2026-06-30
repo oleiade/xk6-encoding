@@ -124,9 +124,6 @@ func NewTextDecoder(rt *sobek.Runtime, label string, options TextDecoderOptions)
 	return td, nil
 }
 
-// replacementCharUTF8 is the UTF-8 encoded form of U+FFFD.
-var replacementCharUTF8 = []byte{0xEF, 0xBF, 0xBD}
-
 // Decode takes a byte stream as input and returns a string.
 func (td *TextDecoder) Decode(buffer []byte, options TextDecodeOptions) (string, error) {
 	if td.decoder == nil {
@@ -331,6 +328,9 @@ func (td *TextDecoder) resetState() {
 }
 
 func sanitizeUTF8Bytes(data []byte, stream bool) (processed []byte, leftover []byte, hadInvalid bool) {
+	// replacementCharUTF8 is the UTF-8 encoded form of U+FFFD.
+	replacementCharUTF8 := []byte{0xEF, 0xBF, 0xBD}
+
 	if len(data) == 0 {
 		return nil, nil, false
 	}
