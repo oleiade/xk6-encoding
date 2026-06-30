@@ -209,10 +209,10 @@ func (td *TextDecoder) decodeUTF16(buffer []byte, options TextDecodeOptions) (st
 
 	var decoded string
 	var err error
-	var consumed int
 
 	if processLen > 0 {
 		toDecode := td.buffer[:processLen]
+		var consumed int
 		decoded, consumed, err = td.applyTransform(toDecode, !stream)
 		td.buffer = append(td.buffer[:0], td.buffer[consumed:]...)
 	} else {
