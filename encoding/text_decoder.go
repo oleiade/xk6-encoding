@@ -209,7 +209,7 @@ func (td *TextDecoder) decodeUTF16(buffer []byte, options TextDecodeOptions) (st
 
 	var decoded string
 	var err error
-	consumed := 0
+	var consumed int
 
 	if processLen > 0 {
 		toDecode := td.buffer[:processLen]
