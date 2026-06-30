@@ -48,7 +48,7 @@ func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
 // Exports implements the modules.Instance interface and returns
 // the exports of the JS module.
 func (mi *ModuleInstance) Exports() modules.Exports {
-	return modules.Exports{Named: map[string]interface{}{
+	return modules.Exports{Named: map[string]any{
 		"TextDecoder": mi.NewTextDecoder,
 		"TextEncoder": mi.NewTextEncoder,
 	}}
