@@ -149,7 +149,7 @@ func (td *TextDecoder) decodeUTF8(buffer []byte, options TextDecodeOptions) (str
 		}
 	}
 
-	combined := append(td.buffer, buffer...)
+	combined := append(td.buffer, buffer...) //nolint:gocritic
 	td.buffer = td.buffer[:0]
 
 	processed, leftover, hadInvalid := sanitizeUTF8Bytes(combined, stream)
