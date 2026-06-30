@@ -442,8 +442,6 @@ type TextDecodeOptions struct {
 }
 
 // Name is a type alias for the name of an encoding.
-//
-//nolint:revive
 type Name = string
 
 const (
