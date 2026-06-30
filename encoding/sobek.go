@@ -62,10 +62,7 @@ func exportArrayBuffer(rt *sobek.Runtime, v sobek.Value) ([]byte, error) {
 			return nil, errors.New("DataView byteOffset out of bounds")
 		}
 
-		end := byteOffset + byteLength
-		if end > int64(len(allBytes)) {
-			end = int64(len(allBytes))
-		}
+		end := min(byteOffset+byteLength, int64(len(allBytes)))
 
 		return allBytes[byteOffset:end], nil
 	} else {

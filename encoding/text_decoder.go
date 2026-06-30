@@ -278,10 +278,7 @@ func (td *TextDecoder) applyTransform(input []byte, atEOF bool) (string, int, er
 		return "", 0, nil
 	}
 
-	destSize := len(input)*4 + 64
-	if destSize < 64 {
-		destSize = 64
-	}
+	destSize := max(len(input)*4+64, 64)
 	dest := make([]byte, destSize)
 
 	var (
