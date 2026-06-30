@@ -40,7 +40,7 @@ func exportArrayBuffer(rt *sobek.Runtime, v sobek.Value) ([]byte, error) {
 	var ab sobek.ArrayBuffer
 	var ok bool
 
-	if IsTypedArray(rt, v) { //nolint:nestif
+	if IsTypedArray(rt, v) { //nolint:nestif,gocritic
 		ab, ok = asObject.Get("buffer").Export().(sobek.ArrayBuffer)
 		if !ok {
 			return nil, errors.New("TypedArray.buffer is not an ArrayBuffer")
