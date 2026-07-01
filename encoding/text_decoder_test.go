@@ -34,6 +34,8 @@ func TestTextDecoderUTF8StreamingStateMachine(t *testing.T) {
 	t.Parallel()
 
 	t.Run("IncompleteThenInvalidContinuation", func(t *testing.T) {
+		t.Parallel()
+
 		td := &TextDecoder{
 			TextDecoderCommon: TextDecoderCommon{
 				Encoding: UTF8EncodingFormat,
@@ -55,6 +57,8 @@ func TestTextDecoderUTF8StreamingStateMachine(t *testing.T) {
 	})
 
 	t.Run("ImmediateInvalidStartByte", func(t *testing.T) {
+		t.Parallel()
+
 		td := &TextDecoder{
 			TextDecoderCommon: TextDecoderCommon{
 				Encoding: UTF8EncodingFormat,
@@ -72,6 +76,8 @@ func TestTextDecoderUTF8StreamingStateMachine(t *testing.T) {
 	})
 
 	t.Run("ASCIIStreamingProducesOutput", func(t *testing.T) {
+		t.Parallel()
+
 		td := &TextDecoder{
 			TextDecoderCommon: TextDecoderCommon{
 				Encoding: UTF8EncodingFormat,
@@ -93,6 +99,8 @@ func TestTextDecoderUTF8StreamingStateMachine(t *testing.T) {
 	})
 
 	t.Run("FatalFlushOnTruncatedSequence", func(t *testing.T) {
+		t.Parallel()
+
 		td := &TextDecoder{
 			TextDecoderCommon: TextDecoderCommon{
 				Encoding:  UTF8EncodingFormat,
@@ -122,6 +130,8 @@ func TestTextDecoderUTF16FatalStreaming(t *testing.T) {
 	}
 
 	t.Run("OddFollowedByOddCompletes", func(t *testing.T) {
+		t.Parallel()
+
 		td := newFatalDecoder()
 
 		out, err := td.Decode([]byte{0x00}, TextDecodeOptions{Stream: true})
@@ -134,6 +144,8 @@ func TestTextDecoderUTF16FatalStreaming(t *testing.T) {
 	})
 
 	t.Run("EvenThenOddThrows", func(t *testing.T) {
+		t.Parallel()
+
 		td := newFatalDecoder()
 
 		out, err := td.Decode([]byte{0x00, 0x00}, TextDecodeOptions{Stream: true})
@@ -145,6 +157,8 @@ func TestTextDecoderUTF16FatalStreaming(t *testing.T) {
 	})
 
 	t.Run("OddThenEvenThrows", func(t *testing.T) {
+		t.Parallel()
+
 		td := newFatalDecoder()
 
 		out, err := td.Decode([]byte{0x00}, TextDecodeOptions{Stream: true})
@@ -156,6 +170,8 @@ func TestTextDecoderUTF16FatalStreaming(t *testing.T) {
 	})
 
 	t.Run("EvenChunksStreamSuccessfully", func(t *testing.T) {
+		t.Parallel()
+
 		td := newFatalDecoder()
 
 		out, err := td.Decode([]byte{0x00, 0x00}, TextDecodeOptions{Stream: true})

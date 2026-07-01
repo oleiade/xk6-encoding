@@ -124,9 +124,6 @@ func NewTextDecoder(rt *sobek.Runtime, label string, options TextDecoderOptions)
 	return td, nil
 }
 
-// replacementCharUTF8 is the UTF-8 encoded form of U+FFFD.
-var replacementCharUTF8 = []byte{0xEF, 0xBF, 0xBD}
-
 // Decode takes a byte stream as input and returns a string.
 func (td *TextDecoder) Decode(buffer []byte, options TextDecodeOptions) (string, error) {
 	if td.decoder == nil {
@@ -152,7 +149,7 @@ func (td *TextDecoder) decodeUTF8(buffer []byte, options TextDecodeOptions) (str
 		}
 	}
 
-	combined := append(td.buffer, buffer...)
+	combined := append(td.buffer, buffer...) //nolint:gocritic
 	td.buffer = td.buffer[:0]
 
 	processed, leftover, hadInvalid := sanitizeUTF8Bytes(combined, stream)
@@ -212,10 +209,10 @@ func (td *TextDecoder) decodeUTF16(buffer []byte, options TextDecodeOptions) (st
 
 	var decoded string
 	var err error
-	consumed := 0
 
 	if processLen > 0 {
 		toDecode := td.buffer[:processLen]
+		var consumed int
 		decoded, consumed, err = td.applyTransform(toDecode, !stream)
 		td.buffer = append(td.buffer[:0], td.buffer[consumed:]...)
 	} else {
@@ -281,10 +278,7 @@ func (td *TextDecoder) applyTransform(input []byte, atEOF bool) (string, int, er
 		return "", 0, nil
 	}
 
-	destSize := len(input)*4 + 64
-	if destSize < 64 {
-		destSize = 64
-	}
+	destSize := max(len(input)*4+64, 64)
 	dest := make([]byte, destSize)
 
 	var (
@@ -331,6 +325,9 @@ func (td *TextDecoder) resetState() {
 }
 
 func sanitizeUTF8Bytes(data []byte, stream bool) (processed []byte, leftover []byte, hadInvalid bool) {
+	// replacementCharUTF8 is the UTF-8 encoded form of U+FFFD.
+	replacementCharUTF8 := []byte{0xEF, 0xBF, 0xBD}
+
 	if len(data) == 0 {
 		return nil, nil, false
 	}
@@ -445,8 +442,6 @@ type TextDecodeOptions struct {
 }
 
 // Name is a type alias for the name of an encoding.
-//
-//nolint:revive
 type Name = string
 
 const (
